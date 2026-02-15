@@ -1,15 +1,19 @@
 // gpt_agent.js
 /****************************************************************************
- * 🤖 GPT-Like Agent v10.0 - HYBRID SEMANTIC EDITION
+ * 🤖 GPT-Like Agent v11.0 - ULTIMATE COORDINATOR EDITION
  * 
- * ⚡ الميزات الثورية:
- * ✓ محرك دلالي هجين (HybridSearchV1) - بحث ذكي بتقنية E5 Embeddings
- * ✓ ذاكرة سياقية متقدمة مع التخزين الدائم
- * ✓ نافذة تحميل ذكية (مرة واحدة فقط)
- * ✓ تطبيع نصي متقدم للغة العربية
- * ✓ دقة عالية في فهم الأسئلة المعقدة
- * ✓ ربط ديناميكي مع القرار 104
- * ✓ واجهة محسنة وتجربة سلسة
+ * ⚡ المبدأ: فصل المسؤوليات (Separation of Concerns)
+ * 
+ * هذا الملف يعمل كـ COORDINATOR فقط:
+ * ✓ يستقبل السؤال من المستخدم
+ * ✓ يحدد نوع السؤال (نشاط / منطقة / قرار 104)
+ * ✓ يستخدم المحرك الدلالي للبحث الذكي
+ * ✓ يُمرر النتائج للمعالج المتخصص
+ * ✓ يعرض النتيجة النهائية
+ * 
+ * ❌ لا يحتوي على منطق معالجة معقد
+ * ❌ لا يحتوي على تنسيق HTML مباشر
+ * ❌ كل شيء يتم عبر الملفات المتخصصة
  ****************************************************************************/
 
 // تهيئة كائن الوكيل العالمي
@@ -67,8 +71,8 @@ const chatHTML = `
                     ✅ الجهات الصادرة للتراخيص والسند التشريعي<br><br>
                     <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                           -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-                          font-weight: bold;">🚀 محرك بحث دلالي متقدم • ذاكرة سياقية ذكية</span><br><br>
-                    <em style="color: #10a37f;">جرب أن تسأل: "مصنع مستحضرات طبية"</em>
+                          font-weight: bold;">🚀 محرك دلالي متقدم • معالجات متخصصة • ذاكرة ذكية</span><br><br>
+                    <em style="color: #10a37f;">جرب أن تسأل: "فندق" أو "المناطق الصناعية"</em>
                 </div>
             </div>
         </div>
@@ -128,12 +132,10 @@ let hybridEngine = null;
 let isEngineReady = false;
 
 async function initializeHybridEngine() {
-    // فحص إذا كان المحرك محمل مسبقاً
     const engineStatus = localStorage.getItem('hybrid-engine-initialized');
     const lastInitTime = localStorage.getItem('hybrid-engine-init-time');
     const currentTime = Date.now();
     
-    // إذا كان المحرك محمل خلال آخر ساعة، لا نعرض النافذة
     if (engineStatus === 'true' && lastInitTime && (currentTime - parseInt(lastInitTime)) < 3600000) {
         console.log('🚀 المحرك الدلالي محمل مسبقاً - تحميل سريع...');
         try {
@@ -149,7 +151,6 @@ async function initializeHybridEngine() {
         }
     }
 
-    // عرض نافذة التحميل
     const modal = document.getElementById('hybridEngineLoadingModal');
     const progress = document.getElementById('loadingProgress');
     const status = document.getElementById('loadingStatus');
@@ -157,36 +158,30 @@ async function initializeHybridEngine() {
     modal.style.display = 'flex';
     
     try {
-        // المرحلة 1: استيراد المحرك
         status.textContent = 'تحميل المحرك الدلالي...';
         progress.style.width = '20%';
         
         const { hybridEngine: engine } = await import('./HybridSearchV1.js');
         hybridEngine = engine;
         
-        // المرحلة 2: تحميل النموذج
         status.textContent = 'تحميل نموذج E5 متعدد اللغات...';
         progress.style.width = '40%';
         
         await new Promise(resolve => setTimeout(resolve, 300));
         
-        // المرحلة 3: تهيئة قاعدة البيانات
         status.textContent = 'تحميل قاعدة البيانات الموحدة...';
         progress.style.width = '60%';
         
         await hybridEngine.initialize();
         
-        // المرحلة 4: الاختبار والتحقق
         status.textContent = 'التحقق من جاهزية النظام...';
         progress.style.width = '80%';
         
         await new Promise(resolve => setTimeout(resolve, 200));
         
-        // اكتمال
         status.textContent = '✅ المحرك جاهز للعمل!';
         progress.style.width = '100%';
         
-        // حفظ حالة التهيئة
         localStorage.setItem('hybrid-engine-initialized', 'true');
         localStorage.setItem('hybrid-engine-init-time', currentTime.toString());
         
@@ -215,7 +210,6 @@ async function initializeHybridEngine() {
     }
 }
 
-// تحميل المحرك عند فتح التطبيق لأول مرة
 initializeHybridEngine();
 
 // ==================== منطق التحريك (Draggable Logic) ====================
@@ -278,327 +272,10 @@ initializeHybridEngine();
     btn.addEventListener('touchstart', dragStart, { passive: false });
 })();
 
-// ==================== أدوات المعالجة اللغوية ====================
-
-function normalizeArabic(text) {
-    if (!text) return "";
-    return text.toString()
-        .replace(/[أإآٱ]/g, 'ا')
-        .replace(/[ةه]/g, 'ه')
-        .replace(/[ىي]/g, 'ي')
-        .replace(/ؤ/g, 'و')
-        .replace(/ئ/g, 'ي')
-        .replace(/[\u064B-\u065F\u0670]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-}
-
-window.GPT_AGENT.stopWords = ['في', 'من', 'الى', 'على', 'عن', 'هل', 'ما', 'هو', 'هي', 'ذلك', 'تلك', 'لي', 'لك', 'كيف', 'ماذا', 'متى', 'اين', 'لماذا', 'كم'];
-
-function extractKeywords(text) {
-    const normalized = normalizeArabic(text);
-    const stopWordsList = window.GPT_AGENT.stopWords || [];
-    return normalized.split(/\s+/)
-        .filter(word => word.length > 2 && !stopWordsList.includes(word));
-}
-
-// ==================== 🧠 كاشف نوع السؤال - محسّن ====================
-window.detectQuestionType = function(query) {
-    const q = normalizeArabic(query);
-
-    // فحص مبكر: إذا كان السؤال عن "عدد المناطق التابعة لجهة"
-    const isCountAreasForDependency = (
-        /عدد.*مناطق.*تابع/i.test(q) ||
-        /كم.*منطق.*تابع/i.test(q) ||
-        /كام.*منطق.*تابع/i.test(q)
-    );
-    
-    if (isCountAreasForDependency) {
-        return {
-            isCount: true, isList: false, isLocation: false, isLicense: false,
-            isAuthority: false, isLaw: false, isGuide: false, isTechnical: false,
-            isDecision104: false, isDependency: true, isGovernorate: false,
-            isIndustrial: true, isActivity: false, isYesNo: /هل|ايه|صح|خطأ/.test(q),
-            isGeneralAreaCount: false, isSpecificAreaCount: true,
-            isAreaList: false, isGovernanceAuthority: false, isLicensingAuthority: false,
-            isAreaExistenceCheck: false, hasLicenseContext: false, hasLocationContext: false
-        };
-    }
-
-    const hasIndustrialPattern = (
-        /منطقه صناعيه|مناطق صناعيه|منطقة صناعية|مناطق صناعية/.test(q) ||
-        (q.includes('صناعيه') && q.includes('منطقه')) ||
-        (q.includes('صناعية') && q.includes('منطقة'))
-    );
-    const hasAreaKeywords = q.includes('منطقه') || q.includes('منطقة') || q.includes('صناعيه') || q.includes('صناعية');
-    const hasLicenseKeywords = /ترخيص|تراخيص|رخصه|رخصة|موافقه|موافقة|اذن|إذن|اجراءات|إجراءات|متطلبات|شروط/.test(q);
-    const hasLocationKeywords = /مكان|موقع|فين|اين|خريطه|خريطة|احداثيات|إحداثيات|عنوان/.test(q);
-    const isGovernanceAuthority = /جهة (ولاية|تبعية|ادارة|إدارة) (المنطقة|منطقة|المناطق)/.test(q) || 
-                                   /تابع(ة)? ل(ـ)?(المحافظة|الهيئة|وزارة)/.test(q);
-    const isLicensingAuthority = /جهة (مصدرة|اصدار|إصدار|ترخيص|منح|موافقة)/.test(q) ||
-                                  /(من|اي|أي) (يصدر|تصدر|يمنح|تمنح) (الترخيص|الرخصة)/.test(q);
-    const isAreaExistenceCheck = /هل/.test(q) && hasIndustrialPattern && 
-                                  !hasLicenseKeywords && 
-                                  !/(ترخيص|نشاط|مشروع)/.test(q);
-    const isDecision104 = /قرار.*104|104|حافز|حوافز|قطاع\s*(أ|ا|ب)/.test(q);
-
-    return {
-        isCount: /عدد|كام|كم|تعداد|عدده/.test(q),
-        isList: /اسماء|قائمه|قائمة|اذكر|وضح|ايه|اي|ما هي|عرض|اظهر/.test(q),
-        isLocation: hasLocationKeywords,
-        isLicense: hasLicenseKeywords,
-        isAuthority: /جهه|جهة|هيئه|هيئة|وزاره|وزارة|مسئول|مسؤول|من يصدر/.test(q),
-        isLaw: /قانون|سند|تشريع|قرار|تشريعي/.test(q),
-        isGuide: /دليل|جايد|guide|رابط|لينك|تحميل|مجلد/.test(q),
-        isTechnical: /ملاحظات|فنيه|فنية|معاينه|معاينة|لجنه|لجنة|فحص/.test(q),
-        isDecision104: isDecision104,
-        isDependency: /تابع|تبعيه|تبعية|ولايه|ولاية|جهه ولايه|جهة ولاية/.test(q),
-        isGovernorate: /محافظه|محافظة|مدينه|مدينة|مركز|قرية/.test(q),
-        isIndustrial: hasIndustrialPattern || hasAreaKeywords,
-        isActivity: /نشاط|مشروع|عمل|business/.test(q),
-        isYesNo: /هل|ايه|صح|خطأ|صحيح|غلط/.test(q),
-        isGeneralAreaCount: (q.includes('عدد') && hasAreaKeywords && !/(محافظه|جهه|ولاية|تابع)/.test(q)),
-        isSpecificAreaCount: (q.includes('عدد') && hasAreaKeywords && /(محافظه|جهه|ولاية|تابع)/.test(q)),
-        isAreaList: (
-            (q.includes('ما هي') && hasAreaKeywords) || 
-            (q.includes('قائمه') && hasAreaKeywords) ||
-            (q.includes('عرض') && hasAreaKeywords) || 
-            (q.includes('اظهر') && hasAreaKeywords) ||
-            (q.includes('المناطق') && q.includes('تابعه')) ||
-            (q.includes('المناطق') && q.includes('تبعية')) ||
-            (q.includes('المناطق') && q.includes('تبع'))
-        ),
-        isGovernanceAuthority: isGovernanceAuthority,
-        isLicensingAuthority: isLicensingAuthority,
-        isAreaExistenceCheck: isAreaExistenceCheck,
-        hasLicenseContext: hasLicenseKeywords,
-        hasLocationContext: hasLocationKeywords
-    };
-};
-
-// ==================== 🧠 محلل السياق الذكي ====================
-function analyzeContext(query, questionType) {
-    const q = normalizeArabic(query);
-    let areaScore = 0;
-    let activityScore = 0;
-    const hasAreaKeywords = q.includes('منطقه') || q.includes('منطقة') || q.includes('صناعيه') || q.includes('صناعية');
-    const hasLicenseContext = /ترخيص|تراخيص|متطلبات|شروط|اجراءات/.test(q);
-
-    if (questionType.isGeneralAreaCount) areaScore += 2000;
-    if (questionType.isSpecificAreaCount) areaScore += 1900;
-    if (questionType.isAreaList) areaScore += 1850;
-    if (questionType.isGovernanceAuthority) areaScore += 1800;
-    if (questionType.isAreaExistenceCheck) areaScore += 1750;
-
-    if (hasAreaKeywords) {
-        if (/عرض|اظهر/.test(q) && /(كل|جميع)/.test(q)) {
-            areaScore += 1850;
-        } else if (/(كل|جميع)/.test(q) && !hasLicenseContext) {
-            areaScore += 1700;
-        }
-    }
-
-    if (questionType.isCount && /منطقه|منطقة|مناطق/.test(q)) {
-        areaScore += 1500;
-    }
-
-    if (/منطقة صناعية/.test(q) || /مناطق صناعية/.test(q)) areaScore += 1000;
-    if (questionType.hasLocationContext && questionType.isIndustrial) areaScore += 800;
-    if (questionType.isGovernorate && questionType.isIndustrial) areaScore += 700;
-    if (/قرار (إنشاء|انشاء)/.test(q)) areaScore += 700;
-    if (/موقع.*منطقة/.test(q) || /مكان.*منطقة/.test(q)) areaScore += 750;
-    if (/(محافظة|محافظه).*صناعية/.test(q)) areaScore += 600;
-    if (questionType.isDependency && questionType.isIndustrial) areaScore += 650;
-
-    if (questionType.hasLicenseContext && questionType.isIndustrial) {
-        areaScore -= 400;
-    }
-    if (questionType.hasLocationContext && questionType.isActivity) {
-        activityScore -= 300;
-    }
-
-    const hasSpecificAreaName = checkForSpecificAreaName(q);
-    if (hasSpecificAreaName.found) {
-        areaScore += 500;
-    }
-
-    const hasSpecificActivityType = checkForSpecificActivityType(q);
-    if (hasSpecificActivityType.found) {
-        activityScore += 500;
-    }
-
-    const delta = areaScore - activityScore;
-    const totalScore = areaScore + activityScore;
-    const confidence = totalScore > 0 ? Math.min(Math.abs(delta) / totalScore * 100, 100) : 0;
-
-    return {
-        areaScore, activityScore, delta, confidence: Math.round(confidence),
-        recommendation: delta > 300 ? 'areas' : delta < -300 ? 'activities' : 'ambiguous',
-        needsClarification: Math.abs(delta) < 300 && totalScore > 0,
-        specificAreaName: hasSpecificAreaName.name || null,
-        specificActivityType: hasSpecificActivityType.type || null
-    };
-}
-
-// ==================== 🔍 فحص وجود اسم منطقة محددة ====================
-function checkForSpecificAreaName(normalizedQuery) {
-    if (typeof industrialAreasData === 'undefined') return { found: false, name: null };
-    for (const area of industrialAreasData) {
-        const areaName = normalizeArabic(area.name);
-        const simplifiedName = areaName.replace(/المنطقة الصناعية/g, '').replace(/المنطقه الصناعيه/g, '').replace(/ب/g, '').trim();
-        if (normalizedQuery.includes(areaName)) return { found: true, name: area.name };
-        if (simplifiedName.length > 4 && normalizedQuery.includes(simplifiedName)) return { found: true, name: area.name };
-    }
-    return { found: false, name: null };
-}
-
-// ==================== 🔍 فحص وجود نوع نشاط محدد ====================
-function checkForSpecificActivityType(normalizedQuery) {
-    if (typeof activitiesData === 'undefined') return { found: false, type: null };
-    for (const activity of activitiesData) {
-        const activityName = normalizeArabic(activity['النشاط المحدد'] || '');
-        if (activityName && normalizedQuery.includes(activityName)) {
-            return { found: true, type: activity['النشاط المحدد'] };
-        }
-    }
-    return { found: false, type: null };
-}
-
-// ==================== 🎯 مستخرج الكيانات ====================
-function extractEntities(query) {
-    const q = normalizeArabic(query);
-    const governorates = extractGovernorates(q);
-    const dependencies = extractDependencies(q);
-    const areaNames = extractAreaNames(q);
-    const activityTypes = extractActivityTypes(q);
-    return {
-        governorates, dependencies, areaNames, activityTypes,
-        hasGovernorate: governorates.length > 0,
-        hasDependency: dependencies.length > 0,
-        hasAreaName: areaNames.length > 0,
-        hasActivityType: activityTypes.length > 0
-    };
-}
-
-function extractGovernorates(normalizedQuery) {
-    if (typeof industrialAreasData === 'undefined') return [];
-    const found = [];
-    const govMap = new Map();
-    for (const area of industrialAreasData) {
-        const gov = area.governorate;
-        if (!gov) continue;
-        const normalizedGov = normalizeArabic(gov);
-        if (!govMap.has(normalizedGov)) govMap.set(normalizedGov, gov);
-        if (normalizedQuery.includes(normalizedGov)) {
-            const confidence = (normalizedGov.length / normalizedQuery.length) * 100;
-            found.push({ value: gov, confidence: Math.min(confidence, 100) });
-        }
-    }
-    return removeDuplicates(found);
-}
-
-function extractDependencies(normalizedQuery) {
-    if (typeof industrialAreasData === 'undefined') return [];
-    const found = [];
-    const depMap = new Map();
-    for (const area of industrialAreasData) {
-        const dep = area.dependency;
-        if (!dep) continue;
-        const normalizedDep = normalizeArabic(dep);
-        if (!depMap.has(normalizedDep)) depMap.set(normalizedDep, dep);
-        if (normalizedQuery.includes(normalizedDep)) {
-            const confidence = (normalizedDep.length / normalizedQuery.length) * 100;
-            found.push({ value: dep, confidence: Math.min(confidence, 100) });
-        }
-    }
-    return removeDuplicates(found);
-}
-
-function extractAreaNames(normalizedQuery) {
-    if (typeof industrialAreasData === 'undefined') return [];
-    const found = [];
-    for (const area of industrialAreasData) {
-        const areaName = normalizeArabic(area.name);
-        const simplifiedName = areaName.replace(/المنطقة الصناعية/g, '').replace(/المنطقه الصناعيه/g, '').replace(/^ب/g, '').trim();
-        const words = simplifiedName.split(/\s+/).filter(w => w.length > 3);
-        let matches = 0;
-        for (const word of words) {
-            if (normalizedQuery.includes(word)) matches++;
-        }
-        if (matches > 0) {
-            const confidence = words.length > 0 ? (matches / words.length) * 100 : 0;
-            const matchType = matches === words.length ? 'full' : 'partial';
-            found.push({
-                name: area.name,
-                distinctiveName: simplifiedName,
-                confidence: Math.min(confidence, 100),
-                matchType
-            });
-        }
-    }
-    return found.sort((a, b) => b.confidence - a.confidence);
-}
-
-function extractActivityTypes(normalizedQuery) {
-    if (typeof activitiesData === 'undefined') return [];
-    const found = [];
-    for (const activity of activitiesData) {
-        const activityName = normalizeArabic(activity['النشاط المحدد'] || '');
-        const mainActivity = normalizeArabic(activity['النشاط الرئيسي'] || '');
-        if (activityName && normalizedQuery.includes(activityName)) {
-            found.push({
-                text: activity['النشاط المحدد'],
-                value: activity.value,
-                confidence: 100,
-                matchType: 'exact'
-            });
-        } else if (mainActivity && normalizedQuery.includes(mainActivity)) {
-            found.push({
-                text: activity['النشاط الرئيسي'],
-                value: activity.value,
-                confidence: 80,
-                matchType: 'synonym'
-            });
-        }
-    }
-    return removeDuplicates(found);
-}
-
-function removeDuplicates(found) {
-    const unique = [];
-    const seen = new Set();
-    for (const item of found) {
-        if (!seen.has(item.value)) {
-            seen.add(item.value);
-            unique.push(item);
-        }
-    }
-    return unique.sort((a, b) => b.confidence - a.confidence);
-}
-
-function calculateSimilarity(str1, str2) {
-    const s1 = normalizeArabic(str1);
-    const s2 = normalizeArabic(str2);
-    const words1 = s1.split(/\s+/);
-    const words2 = s2.split(/\s+/);
-    let matches = 0;
-    for (const w1 of words1) {
-        for (const w2 of words2) {
-            if (w1 === w2 || w1.includes(w2) || w2.includes(w1)) {
-                matches++;
-                break;
-            }
-        }
-    }
-    const maxLen = Math.max(words1.length, words2.length);
-    return maxLen > 0 ? (matches / maxLen) * 100 : 0;
-}
-
-// ==================== 🔍 البحث باستخدام المحرك الدلالي ====================
+// ==================== 🔍 البحث الذكي باستخدام المحرك الدلالي ====================
 async function searchWithHybridEngine(query, options = {}) {
     if (!isEngineReady || !hybridEngine) {
-        console.warn('⚠️ المحرك الدلالي غير جاهز، استخدام البحث التقليدي...');
+        console.warn('⚠️ المحرك الدلالي غير جاهز');
         return null;
     }
 
@@ -613,6 +290,7 @@ async function searchWithHybridEngine(query, options = {}) {
 
         console.log(`✅ المحرك الدلالي وجد ${results.results.length} نتيجة`);
         console.log(`🎯 أعلى نتيجة: ${results.topMatch?.id} (${Math.round(results.confidence * 100)}%)`);
+        console.log(`📊 القاعدة المستهدفة: ${results.intent}`);
         
         return results;
     } catch (error) {
@@ -621,616 +299,143 @@ async function searchWithHybridEngine(query, options = {}) {
     }
 }
 
-// ==================== 🔍 البحث الذكي مع Fallback للبحث التقليدي ====================
-async function smartSearch(query, database) {
-    // محاولة البحث بالمحرك الدلالي أولاً
-    const hybridResults = await searchWithHybridEngine(query, { topK: 5 });
-    
-    if (hybridResults && hybridResults.topMatch && hybridResults.confidence > 0.5) {
-        console.log('✅ نتيجة من المحرك الدلالي');
-        
-        // 🔧 إضافة معلومات قاعدة البيانات المصدر
-        const resultWithMeta = {
-            source: 'hybrid',
-            data: hybridResults.topMatch.data.original_data,
-            confidence: hybridResults.confidence,
-            allResults: hybridResults.results,
-            dbName: hybridResults.topMatch.dbName || hybridResults.intent // اسم قاعدة البيانات
-        };
-        
-        console.log(`🎯 المصدر: ${resultWithMeta.dbName}`);
-        return resultWithMeta;
-    }
-
-    // Fallback للبحث التقليدي
-    console.log('🔄 استخدام البحث التقليدي كبديل...');
-    
-    if (database === 'activities' && typeof NeuralSearch !== 'undefined' && typeof activitiesData !== 'undefined') {
-        const results = NeuralSearch(query, activitiesData, { minScore: 50 });
-        if (results.results.length > 0) {
-            return {
-                source: 'neural',
-                data: results.results[0].originalData,
-                confidence: results.results[0].finalScore / 1000,
-                allResults: results.results,
-                dbName: 'activities'
-            };
-        }
-    }
-    
-    if (database === 'areas' && typeof industrialAreasData !== 'undefined') {
-        const result = searchIndustrialZonesWithNeural(query);
-        if (result) {
-            return {
-                source: 'neural',
-                data: result,
-                confidence: 0.7,
-                allResults: [result],
-                dbName: 'areas'
-            };
-        }
-    }
-
-    return null;
-}
-
-// ==================== 🏭 معالج المناطق الصناعية ====================
-async function handleIndustrialQuery(query, questionType, analysisContext, entities) {
-    console.log('🏭 معالجة سؤال المناطق الصناعية...');
-    
-    // البحث الذكي
-    const searchResult = await smartSearch(query, 'areas');
-    
-    if (searchResult && searchResult.data) {
-        // 🔧 استخراج آمن لاسم المنطقة
-        const areaName = searchResult.data.name || 
-                        searchResult.data['اسم_المنطقة'] || 
-                        searchResult.data.الاسم || 
-                        'منطقة غير محددة';
-        
-        console.log(`✅ وجدت منطقة من ${searchResult.source}: ${areaName}`);
-        
-        // حفظ في الذاكرة
-        await window.AgentMemory.setIndustrial(searchResult.data, query);
-        
-        // تنسيق الرد
-        return formatIndustrialResponse(searchResult.data, questionType);
-    }
-
-    // الاستمرار في المعالجة التقليدية إذا لم نجد نتيجة
-    if (typeof industrialAreasData === 'undefined') {
-        return '⚠️ <strong>قاعدة بيانات المناطق الصناعية غير متوفرة حالياً</strong>';
-    }
-
-    // معالجة الحالات الخاصة
-    if (questionType.isGeneralAreaCount) {
-        const totalCount = industrialAreasData.length;
-        return `📊 <strong>إجمالي عدد المناطق الصناعية في مصر:</strong> ${totalCount} منطقة صناعية`;
-    }
-
-    if (questionType.isSpecificAreaCount && entities.hasDependency) {
-        const dep = entities.dependencies[0].value;
-        const filtered = industrialAreasData.filter(a => a.dependency === dep);
-        return `📊 <strong>عدد المناطق التابعة لـ ${dep}:</strong> ${filtered.length} منطقة صناعية`;
-    }
-
-    // محاولة البحث التقليدي
-    const area = searchIndustrialZonesWithNeural(query);
-    if (area) {
-        await window.AgentMemory.setIndustrial(area, query);
-        return formatIndustrialResponse(area, questionType);
-    }
-
-    return null;
-}
-
-// ==================== 📋 معالج الأنشطة ====================
-async function handleActivityQuery(query, questionType, analysisContext, entities) {
-    console.log('📋 معالجة سؤال الأنشطة...');
-    
-    // البحث الذكي
-    const searchResult = await smartSearch(query, 'activities');
-    
-    if (searchResult && searchResult.data) {
-        // 🔧 استخراج البيانات بشكل آمن
-        const activityName = searchResult.data['النشاط المحدد'] || 
-                            searchResult.data['النشاط_المحدد'] || 
-                            searchResult.data['الاسم'] || 
-                            searchResult.data.name || 
-                            'نشاط غير محدد';
-        
-        console.log(`✅ وجدت نشاط من ${searchResult.source}: ${activityName}`);
-        
-        // 🔧 التحقق إذا كانت النتيجة من قاعدة القرار 104
-        const isFromDecision104 = searchResult.dbName === 'decision104';
-        
-        // حفظ في الذاكرة
-        const activityData = {
-            value: searchResult.data.value || searchResult.data.id || 'unknown',
-            text: activityName
-        };
-        await window.AgentMemory.setActivity(activityData, query);
-        
-        // 🔧 استخدام التنسيق المناسب حسب المصدر
-        if (isFromDecision104) {
-            return formatDecision104Response(searchResult.data, questionType);
-        } else {
-            return formatActivityResponse(searchResult.data, questionType);
-        }
-    }
-
-    // الاستمرار في المعالجة التقليدية
-    if (typeof NeuralSearch === 'undefined' || typeof activitiesData === 'undefined') {
-        return '⚠️ <strong>قاعدة بيانات الأنشطة غير متوفرة حالياً</strong>';
-    }
-
-    const results = NeuralSearch(query, activitiesData, { minScore: 50 });
-    
-    if (results.results.length === 0) {
-        return null;
-    }
-
-    const topResult = results.results[0];
-    
-    if (topResult.finalScore >= 800) {
-        const activityData = {
-            value: topResult.originalData.value,
-            text: topResult.originalData['النشاط المحدد']
-        };
-        await window.AgentMemory.setActivity(activityData, query);
-        return formatActivityResponse(topResult.originalData, questionType);
-    }
-
-    if (results.results.length >= 2) {
-        const secondScore = results.results[1].finalScore;
-        const scoreDiff = topResult.finalScore - secondScore;
-        
-        if (scoreDiff < 200 && secondScore >= 300) {
-            await window.AgentMemory.setClarification(
-                results.results.slice(0, 3).map(r => ({
-                    type: 'activity',
-                    name: r.originalData['النشاط المحدد'],
-                    data: { value: r.originalData.value, text: r.originalData['النشاط المحدد'] },
-                    score: r.finalScore
-                }))
-            );
-            return buildMultipleActivitiesClarification(
-                results.results.slice(0, 3).map(r => ({
-                    text: r.originalData['النشاط المحدد'],
-                    value: r.originalData.value,
-                    confidence: Math.round((r.finalScore / 1000) * 100),
-                    matchType: 'search'
-                }))
-            );
-        }
-    }
-
-    if (topResult.finalScore >= 300) {
-        const activityData = {
-            value: topResult.originalData.value,
-            text: topResult.originalData['النشاط المحدد']
-        };
-        await window.AgentMemory.setActivity(activityData, query);
-        return formatActivityResponse(topResult.originalData, questionType);
-    }
-
-    return null;
-}
-
-// ==================== 🎨 تنسيق الردود ====================
-function formatIndustrialResponse(area, questionType) {
-    // 🔧 استخراج آمن للبيانات
-    const areaName = area.name || area['اسم_المنطقة'] || area.الاسم || 'منطقة غير محددة';
-    const governorate = area.governorate || area.المحافظة || area['محافظة'] || null;
-    const dependency = area.dependency || area.التبعية || area['جهة_الولاية'] || null;
-    const areaSize = area.area || area.المساحة || area['مساحة'] || null;
-    const decision = area.decision || area.القرار || area['قرار_الإنشاء'] || null;
-    
-    let html = `<div class="info-card industrial">
-        <div class="info-card-header">🏭 ${areaName}</div>`;
-    
-    if (governorate) html += `<div class="info-row"><strong>المحافظة:</strong> ${governorate}</div>`;
-    if (dependency) html += `<div class="info-row"><strong>جهة الولاية:</strong> ${dependency}</div>`;
-    if (areaSize) html += `<div class="info-row"><strong>المساحة:</strong> ${areaSize}</div>`;
-    if (decision) html += `<div class="info-row"><strong>قرار الإنشاء:</strong> ${decision}</div>`;
-    
-    html += `</div>`;
-    return html;
-}
-
-function formatActivityResponse(activity, questionType) {
-    // 🔧 استخراج آمن للبيانات من مصادر متعددة
-    const activityName = activity['النشاط المحدد'] || 
-                        activity['النشاط_المحدد'] || 
-                        activity['الاسم'] || 
-                        activity.name || 
-                        'نشاط غير محدد';
-    
-    const mainActivity = activity['النشاط الرئيسي'] || 
-                        activity['النشاط_الرئيسي'] || 
-                        activity['القطاع_العام'] || 
-                        activity.sector || 
-                        null;
-    
-    const licensingAuthority = activity['الجهة المُصدرة للترخيص'] || 
-                              activity['الجهة_المصدرة'] || 
-                              activity['جهة_الولاية'] || 
-                              activity.authority || 
-                              null;
-    
-    const legislation = activity['السند التشريعي'] || 
-                       activity['السند_التشريعي'] || 
-                       activity.legislation || 
-                       null;
-    
-    // 🔧 معالجة خاصة لبيانات القرار 104
-    const isDecision104 = activity['القطاع'] || activity.sector_type || activity['نوع_الحافز'];
-    
-    let html = `<div class="info-card activity">
-        <div class="info-card-header">📋 ${activityName}</div>`;
-    
-    if (mainActivity) {
-        html += `<div class="info-row"><strong>النشاط الرئيسي:</strong> ${mainActivity}</div>`;
-    }
-    
-    if (isDecision104) {
-        const sector = activity['القطاع'] || activity.sector_type || 'غير محدد';
-        const sectorGeneral = activity['القطاع_العام'] || activity.general_sector;
-        const incentiveType = activity['نوع_الحافز'] || activity.incentive_type;
-        const conditions = activity['الشروط_العامة'] || activity.general_conditions;
-        
-        if (sectorGeneral) {
-            html += `<div class="info-row"><strong>القطاع العام:</strong> ${sectorGeneral}</div>`;
-        }
-        
-        if (incentiveType) {
-            html += `<div class="info-row" style="background: #e8f5e9; padding: 8px; border-radius: 6px; margin: 8px 0;">
-                <strong style="color: #2e7d32;">✅ ${incentiveType}</strong>
-            </div>`;
-        }
-        
-        if (conditions) {
-            html += `<div class="info-row"><strong>الشروط:</strong> ${conditions}</div>`;
-        }
-        
-        const exemptions = activity['الإعفاءات'] || activity.exemptions;
-        if (exemptions) {
-            html += `<div class="info-row"><strong>الإعفاءات:</strong> ${exemptions}</div>`;
-        }
-    }
-    
-    if (licensingAuthority) {
-        html += `<div class="info-row"><strong>الجهة المُصدرة:</strong> ${licensingAuthority}</div>`;
-    }
-    
-    if (legislation) {
-        html += `<div class="info-row"><strong>السند التشريعي:</strong> ${legislation}</div>`;
-    }
-    
-    // 🔧 إضافة معلومات إضافية من البيانات الأصلية
-    const guide = activity['دليل_الترخيص'] || activity.guide;
-    if (guide && guide !== 'لا يوجد') {
-        html += `<div class="info-row"><strong>دليل الترخيص:</strong> <a href="${guide}" target="_blank">تحميل الدليل</a></div>`;
-    }
-    
-    const notes = activity['ملاحظات_فنية'] || activity.technical_notes;
-    if (notes && notes !== 'لا يوجد') {
-        html += `<div class="info-row"><strong>ملاحظات فنية:</strong> ${notes}</div>`;
-    }
-    
-    html += `</div>`;
-    return html;
-}
-
-// 🆕 دالة خاصة لتنسيق بيانات القرار 104
-function formatDecision104Response(activity, questionType) {
-    const activityName = activity['النشاط_المحدد'] || activity['النشاط المحدد'] || 'نشاط غير محدد';
-    const mainActivity = activity['النشاط_الرئيسي'] || activity['النشاط الرئيسي'];
-    const sectorGeneral = activity['القطاع_العام'];
-    const incentiveType = activity['نوع_الحافز'];
-    const conditions = activity['الشروط_العامة'];
-    
-    let html = `<div class="info-card activity" style="border-left: 4px solid #4caf50;">
-        <div class="info-card-header" style="background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white;">
-            ✅ ${activityName}
-        </div>`;
-    
-    if (sectorGeneral) {
-        html += `<div class="info-row">
-            <strong>🏭 القطاع العام:</strong> 
-            <span style="color: #1976d2;">${sectorGeneral}</span>
-        </div>`;
-    }
-    
-    if (mainActivity && mainActivity !== '(غير محدد بقطاعات فرعية رقمية)') {
-        html += `<div class="info-row"><strong>التفصيل:</strong> ${mainActivity}</div>`;
-    }
-    
-    if (incentiveType) {
-        html += `<div class="info-row" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 12px; border-radius: 8px; margin: 12px 0; border: 2px solid #4caf50;">
-            <strong style="color: #2e7d32; font-size: 1.1em;">🎁 ${incentiveType}</strong>
-        </div>`;
-    }
-    
-    if (conditions) {
-        html += `<div class="info-row" style="background: #fff3e0; padding: 10px; border-radius: 6px; border-left: 3px solid #ff9800;">
-            <strong>📋 الشروط:</strong> ${conditions}
-        </div>`;
-    }
-    
-    html += `
-        <div style="margin-top: 16px; padding: 12px; background: #f5f5f5; border-radius: 8px; text-align: center;">
-            <small style="color: #666;">
-                💡 لمزيد من التفاصيل عن القرار 104 لسنة 2022
-            </small>
-        </div>
-    </div>`;
-    
-    return html;
-}
-
-// 🆕 دالة لعرض خيارات متعددة من القرار 104
-function formatDecision104MultipleResults(results, query) {
-    let html = `<div class="clarification-card" style="border-left: 4px solid #4caf50;">
-        <div class="clarification-header">
-            <div class="clarification-icon">🎯</div>
-            <div class="clarification-title">وجدت ${results.length} نشاط مطابق لسؤالك</div>
-        </div>
-        <div class="clarification-subtitle" style="color: #2e7d32;">اختر النشاط المناسب لمشروعك:</div>`;
-    
-    // 🔧 إزالة التكرارات بناءً على اسم النشاط
-    const uniqueResults = [];
-    const seenActivities = new Set();
-    
-    results.forEach((result) => {
-        const data = result.data.original_data;
-        const activityName = data['النشاط_المحدد'] || data['النشاط المحدد'] || '';
-        const key = `${activityName}_${data['القطاع_العام'] || ''}_${data['نوع_الحافز'] || ''}`;
-        
-        if (!seenActivities.has(key)) {
-            seenActivities.add(key);
-            uniqueResults.push(result);
-        }
-    });
-    
-    uniqueResults.slice(0, 5).forEach((result, index) => {
-        const data = result.data.original_data;
-        const activityName = data['النشاط_المحدد'] || data['النشاط المحدد'] || 'نشاط غير محدد';
-        const sectorGeneral = data['القطاع_العام'] || '';
-        const incentiveType = data['نوع_الحافز'] || '';
-        const confidence = Math.round(result.cosineScore * 100);
-        
-        const escapedData = escapeForJS(JSON.stringify(data));
-        
-        html += `<div class="choice-btn" onclick="selectDecision104Activity('${escapedData}')" 
-                 style="border-left: 3px solid ${index === 0 ? '#4caf50' : '#81c784'};">
-            <span class="choice-icon" style="font-size: 1.5em;">${index === 0 ? '🏆' : '✅'}</span>
-            <div class="choice-content">
-                <strong style="color: #1b5e20;">${activityName}</strong>
-                <small style="display: block; color: #666; margin-top: 4px;">
-                    ${sectorGeneral ? `🏭 ${sectorGeneral}` : ''}
-                    ${incentiveType ? ` • ${incentiveType}` : ''}
-                </small>
-                <small style="display: block; color: #4caf50; margin-top: 4px; font-weight: bold;">
-                    تطابق ${confidence}%
-                </small>
-            </div>
-        </div>`;
-    });
-    
-    html += `</div>`;
-    return html;
-}
-
-window.selectDecision104Activity = async function(dataStr) {
-    try {
-        const data = JSON.parse(dataStr);
-        const activityName = data['النشاط_المحدد'] || data['النشاط المحدد'];
-        
-        // حفظ في الذاكرة
-        const activityData = {
-            value: data.id || 'dec104',
-            text: activityName
-        };
-        await window.AgentMemory.setActivity(activityData, activityName);
-        
-        // عرض في واجهة المستخدم
-        addMessageToUI('user', activityName);
-        const responseHTML = formatDecision104Response(data, {});
-        const typingId = showTypingIndicator();
-        setTimeout(() => {
-            removeTypingIndicator(typingId);
-            typeWriterResponse(responseHTML);
-        }, 600);
-    } catch (error) {
-        console.error('خطأ في اختيار النشاط:', error);
-    }
-};
-
-// ==================== 📤 توضيحات متعددة ====================
-function buildMultipleActivitiesClarification(activityTypes) {
-    let optionsHTML = '';
-    activityTypes.slice(0, 3).forEach((activity, index) => {
-        optionsHTML += `<div class="choice-btn" onclick="selectSpecificActivity('${activity.value}', '${escapeForJS(activity.text)}')">
-            <span class="choice-icon">${index === 0 ? '🎯' : '📋'}</span> 
-            <div class="choice-content"><strong>${activity.text}</strong><small>تطابق ${activity.confidence}%</small></div>
-        </div>`;
-    });
-    return `
-        <div class="clarification-card">
-            <div class="clarification-header"><div class="clarification-icon">📋</div><div class="clarification-title">وجد عدة أنشطة مطابقة</div></div>
-            <div class="clarification-subtitle">اختر النشاط المقصود:</div>
-            ${optionsHTML}
-        </div>
-    `;
-}
-
-window.selectSpecificActivity = async function(value, text) {
-    if (typeof activitiesData === 'undefined') return;
-    const activity = activitiesData.find(a => a.value === value);
-    if (activity) {
-        await window.AgentMemory.setActivity({ value, text }, text);
-        addMessageToUI('user', text);
-        const responseHTML = formatActivityResponse(activity, detectQuestionType(text));
-        const typingId = showTypingIndicator();
-        setTimeout(() => {
-            removeTypingIndicator(typingId);
-            typeWriterResponse(responseHTML);
-        }, 600);
-    }
-};
-
-// ==================== 🧠 محاكاة NeuralSearch للمناطق ====================
-function searchIndustrialZonesWithNeural(query) {
-    const q = normalizeArabic(query);
-    if (q === 'المحافظه' || q === 'المحافظة' || q === 'الجهه' || q === 'الجهة') return null;
-    if (typeof industrialAreasData === 'undefined' || !industrialAreasData) return null;
-    
-    console.log("🏭 البحث في المناطق:", query);
-    
-    // بحث بسيط بالكلمات
-    for (const area of industrialAreasData) {
-        const areaName = normalizeArabic(area.name);
-        if (areaName.includes(q) || q.includes(areaName)) {
-            console.log("✅ تطابق مباشر:", area.name);
-            return area;
-        }
-    }
-    
-    return null;
-}
-
-// ==================== 🔄 معالج الأسئلة السياقية ====================
-async function handleContextualQuery(query, questionType, context) {
-    console.log('🔄 معالجة سؤال سياقي...');
-    
-    if (context.type === 'activity') {
-        // استخدام البيانات المحفوظة مباشرة
-        if (typeof activitiesData !== 'undefined') {
-            const activity = activitiesData.find(a => a.value === context.data.value);
-            if (activity) {
-                return formatActivityResponse(activity, questionType);
-            }
-        }
-    }
-    
-    if (context.type === 'industrial') {
-        return formatIndustrialResponse(context.data, questionType);
-    }
-    
-    return null;
-}
-
-// ==================== ⚙️ دوال مساعدة ====================
-function escapeHtml(text) {
-    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-
-function escapeForJS(text) {
-    if (!text) return "";
-    return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
-}
-
-// ==================== 🎯 المحرك الرئيسي ====================
+// ==================== 🎯 المحرك الرئيسي - المنسق ====================
 async function processUserQuery(query) {
-    console.log("🔍 معالجة السؤال:", query);
+    console.log("\n🚀 ========== بداية المعالجة ==========");
+    console.log("📝 السؤال:", query);
 
-    const q = normalizeArabic(query);
-    const questionType = detectQuestionType(query);
-    const context = window.AgentMemory.getContext();
-
-    // 🎯 توجيه مباشر لمحرك القرار 104 - يأخذ أولوية عالية
+    // 🎯 توجيه مباشر لمحرك القرار 104 (أعلى أولوية)
     if (window.isDecision104Question && window.isDecision104Question(query)) {
-        console.log("🎯 توجيه السؤال لمحرك القرار 104");
-        const decision104Response = window.handleDecision104Query(query, questionType);
+        console.log("🎯 العقل المدبر: توجيه السؤال لمحرك القرار 104 المطور");
+        const decision104Response = window.handleDecision104Query(query, detectQuestionType(query));
         if (decision104Response) return decision104Response;
     }
 
-    // 🔧 كشف إضافي لأسئلة القرار 104 من المحرك الدلالي
-    const isLikelyDecision104 = /اعفاء|اعفاءات|إعفاء|إعفاءات|حافز|حوافز|قرار.*104|104|قطاع\s*(أ|ا|ب)/i.test(query);
-    
+    const q = normalizeArabic(query);
+    const questionType = detectQuestionType(query);
+
     // معالجة الأسئلة الموجهة صراحة
     if (q.startsWith('المناطق الصناعيه:') || q.startsWith('مناطق صناعيه:') || q.startsWith('مناطق:')) {
         const actualQuery = query.replace(/^(المناطق الصناعيه:|مناطق صناعيه:|مناطق:)/i, '').trim();
         await window.AgentMemory.clear();
-        return await handleIndustrialQuery(actualQuery, detectQuestionType(actualQuery), null, null);
+        
+        // استخدام معالج المناطق المتخصص
+        if (typeof handleIndustrialQuery === 'function') {
+            return await handleIndustrialQuery(actualQuery, detectQuestionType(actualQuery), null, null);
+        }
     }
 
     if (q.startsWith('الانشطه والتراخيص:') || q.startsWith('نشاط:') || q.startsWith('تراخيص:')) {
         const actualQuery = query.replace(/^(الانشطه والتراخيص:|نشاط:|تراخيص:)/i, '').trim();
         await window.AgentMemory.clear();
-        return await handleActivityQuery(actualQuery, detectQuestionType(actualQuery), null, null);
-    }
-
-    // معالجة السياق
-    if (context && context.type !== 'clarification') {
-        const contextResponse = await handleContextualQuery(query, questionType, context);
-        if (contextResponse) return contextResponse;
-    }
-
-    // التحليل الشامل
-    const analysisContext = analyzeContext(query, questionType);
-    const entities = extractEntities(query);
-
-    console.log("📊 السياق:", analysisContext);
-    console.log("🎯 الكيانات:", entities);
-
-    // 🔧 إذا كان السؤال عن إعفاءات/حوافز، استخدم المحرك الدلالي مباشرة
-    if (isLikelyDecision104) {
-        console.log("🎯 سؤال محتمل عن القرار 104 - استخدام البحث الدلالي...");
-        const searchResult = await smartSearch(query, 'activities');
         
-        if (searchResult && searchResult.data) {
-            // التحقق من نوع البيانات المُرجعة
-            const dbName = searchResult.dbName || searchResult.allResults[0]?.dbName;
-            
-            if (dbName === 'decision104') {
-                console.log("✅ تم العثور على نتيجة من قاعدة القرار 104");
-                
-                // 🔧 إذا كان هناك أكثر من نتيجة بثقة عالية، اعرضها للاختيار
-                const topResults = searchResult.allResults
-                    .filter(r => r.cosineScore > 0.65) // نتائج بثقة أكثر من 65%
-                    .slice(0, 5); // أقصى 5 نتائج
-                
-                if (topResults.length > 1) {
-                    console.log(`📋 عرض ${topResults.length} نتيجة للاختيار`);
-                    return formatDecision104MultipleResults(topResults, query);
-                }
-                
-                // نتيجة واحدة فقط
-                return formatDecision104Response(searchResult.data, questionType);
-            }
+        // استخدام معالج الأنشطة المتخصص
+        if (typeof handleActivityQuery === 'function') {
+            return await handleActivityQuery(actualQuery, detectQuestionType(actualQuery), null, null);
         }
     }
 
-    // البحث الذكي
-    if (analysisContext.recommendation === 'areas' || questionType.isIndustrial) {
-        const response = await handleIndustrialQuery(query, questionType, analysisContext, entities);
-        if (response) return response;
+    // 🧠 استخدام المحرك الدلالي للبحث
+    const hybridResults = await searchWithHybridEngine(query, { topK: 10 });
+
+    if (hybridResults && hybridResults.intent) {
+        const intent = hybridResults.intent;
+        console.log(`🎯 المحرك الدلالي حدد القاعدة: ${intent}`);
+
+        // توجيه للمعالج المناسب بناءً على القاعدة
+        if (intent === 'activities' && typeof handleActivityQuery === 'function') {
+            console.log("📋 تمرير النتائج لمعالج الأنشطة المتخصص...");
+            
+            // تحويل نتائج المحرك الدلالي لصيغة متوافقة مع NeuralSearch
+            const compatibleResults = {
+                results: hybridResults.results.map(r => ({
+                    text: r.data.original_data['النشاط المحدد'] || r.data.original_data['النشاط_المحدد'] || '',
+                    value: r.data.original_data.value || r.id,
+                    originalData: r.data.original_data,
+                    finalScore: r.cosineScore * 1000, // تحويل للصيغة القديمة
+                    source: 'hybrid'
+                }))
+            };
+            
+            // استخدام المعالج الأصلي بالنتائج المحسّنة
+            window.lastHybridResults = compatibleResults; // حفظ مؤقت
+            return await handleActivityQuery(query, questionType, null, null);
+        }
+
+        if (intent === 'areas' && typeof handleIndustrialQuery === 'function') {
+            console.log("🏭 تمرير النتائج لمعالج المناطق المتخصص...");
+            
+            // تحويل النتائج للصيغة المناسبة
+            const compatibleResults = {
+                results: hybridResults.results.map(r => ({
+                    text: r.data.original_data.name || r.data.original_data['اسم_المنطقة'] || '',
+                    originalData: r.data.original_data,
+                    finalScore: r.cosineScore * 1000,
+                    source: 'hybrid'
+                }))
+            };
+            
+            window.lastHybridResults = compatibleResults;
+            return await handleIndustrialQuery(query, questionType, null, null);
+        }
+
+        if (intent === 'decision104' && typeof window.handleDecision104Query === 'function') {
+            console.log("📊 تمرير النتائج لمعالج القرار 104 المتخصص...");
+            return window.handleDecision104Query(query, questionType);
+        }
     }
 
-    if (analysisContext.recommendation === 'activities' || questionType.isActivity) {
-        const response = await handleActivityQuery(query, questionType, analysisContext, entities);
-        if (response) return response;
+    // Fallback: استخدام المعالجات الأصلية مباشرة
+    console.log("🔄 استخدام المعالجات التقليدية...");
+    
+    if (typeof handleActivityQuery === 'function') {
+        const activityResponse = await handleActivityQuery(query, questionType, null, null);
+        if (activityResponse) return activityResponse;
     }
 
-    // البحث المزدوج
-    const activityResponse = await handleActivityQuery(query, questionType, analysisContext, entities);
-    if (activityResponse) return activityResponse;
+    if (typeof handleIndustrialQuery === 'function') {
+        const industrialResponse = await handleIndustrialQuery(query, questionType, null, null);
+        if (industrialResponse) return industrialResponse;
+    }
 
-    const industrialResponse = await handleIndustrialQuery(query, questionType, analysisContext, entities);
-    if (industrialResponse) return industrialResponse;
-
-    // رد افتراضي
     console.log("❌ لم يتم العثور على إجابة");
     return generateDefaultResponse(query);
 }
 
-window.generateDefaultResponse = function(query) {
+// ==================== دوال مساعدة ====================
+function normalizeArabic(text) {
+    if (!text) return "";
+    return text.toString()
+        .replace(/[أإآٱ]/g, 'ا')
+        .replace(/[ةه]/g, 'ه')
+        .replace(/[ىي]/g, 'ي')
+        .replace(/ؤ/g, 'و')
+        .replace(/ئ/g, 'ي')
+        .replace(/[\u064B-\u065F\u0670]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+window.detectQuestionType = function(query) {
     const q = normalizeArabic(query);
-    if (q.length < 3) {
-        return `😕 <strong>السؤال قصير جداً</strong><br><br>💡 جرب أن تسأل:<br>• "كم عدد المناطق الصناعية؟"<br>• "ما التراخيص المطلوبة لفندق؟"`;
-    }
+    return {
+        isCount: /عدد|كام|كم|تعداد/.test(q),
+        isList: /اسماء|قائمه|قائمة|اذكر|وضح|ايه|اي|ما هي/.test(q),
+        isLocation: /مكان|موقع|فين|اين|خريطه|خريطة/.test(q),
+        isLicense: /ترخيص|تراخيص|رخصه|موافقه/.test(q),
+        isAuthority: /جهه|جهة|هيئه|هيئة|وزاره|وزارة/.test(q),
+        isLaw: /قانون|سند|تشريع|قرار/.test(q),
+        isGuide: /دليل|guide|رابط/.test(q),
+        isTechnical: /ملاحظات|فنيه|معاينه/.test(q),
+        isDecision104: /قرار.*104|104|حافز|حوافز/.test(q),
+        isIndustrial: /منطقه صناعيه|مناطق صناعيه|منطقة صناعية/.test(q),
+        isActivity: /نشاط|مشروع|عمل/.test(q),
+        isYesNo: /هل|ايه|صح|خطأ/.test(q)
+    };
+};
+
+window.generateDefaultResponse = function(query) {
     return `😕 <strong>عذراً، لم أجد معلومات عن: "${query}"</strong><br><br>💡 جرب أحد هذه الأسئلة:<br>• "كم عدد المناطق الصناعية في مصر؟"<br>• "اذكر اسم أي نشاط"<br>• "هل نشاط النقل الجماعي وارد بالقرار 104؟"`;
 };
 
@@ -1336,8 +541,6 @@ window.addMessageToUI = function(role, content) {
         chatMessagesContainer.appendChild(div);
         chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
         if (window.speechSynthesis && window.speechSynthesis.speaking) window.speechSynthesis.cancel();
-    } else if (role === 'ai') {
-        typeWriterResponse(content, true);
     }
 };
 
@@ -1431,13 +634,7 @@ window.typeWriterResponse = function(htmlContent, shouldAutoSpeak = true) {
                     if (!currentSession.isCancelled) {
                         const voiceControls = document.getElementById('gptVoiceControls');
                         if (voiceControls) voiceControls.style.display = 'flex';
-                        window.speakText(fullTextForSpeech);
-                        if (window.speechSynthesis) {
-                            window.speechSynthesis.addEventListener('end', function hideSpeaker() {
-                                if (voiceControls) voiceControls.style.display = 'none';
-                                window.speechSynthesis.removeEventListener('end', hideSpeaker);
-                            });
-                        }
+                        if (window.speakText) window.speakText(fullTextForSpeech);
                     }
                 }, 200);
             }
@@ -1459,7 +656,6 @@ window.toggleExpandChat = function() {
         icon.classList.replace('fa-compress-alt', 'fa-expand-alt');
         expandBtn.title = "توسيع النافذة";
     }
-    setTimeout(() => document.getElementById('gptInput').focus(), 400);
 };
 
 window.checkInputState = function() {
@@ -1505,24 +701,15 @@ window.showGPTNotification = function(msg, type = 'success') {
         border-radius: 20px;
         font-size: 0.8rem;
         margin: 10px 0;
-        border: 1px solid ${type === 'success' ? '#a5d6a7' : '#ffcc80'};
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        animation: fadeIn 0.5s ease;
         text-align: center;
-        width: fit-content;
-        z-index: 10;
     `;
     div.innerHTML = `✨ ${msg}`;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
-    setTimeout(() => {
-        div.style.transition = 'opacity 1s';
-        div.style.opacity = '0';
-        setTimeout(() => div.remove(), 1000);
-    }, 4000);
+    setTimeout(() => div.remove(), 3000);
 };
 
-window.GPT_AGENT.closeKeywords = ['شكرا', 'شكراً', 'باي', 'مع السلامة', 'إغلاق', 'كفاية', 'خلاص', 'انتهيت', 'سلام'];
+window.GPT_AGENT.closeKeywords = ['شكرا', 'شكراً', 'باي', 'مع السلامة', 'إغلاق'];
 
 window.checkForGPTCloseIntent = function(text) {
     const q = normalizeArabic(text);
@@ -1530,7 +717,7 @@ window.checkForGPTCloseIntent = function(text) {
 };
 
 window.gptGracefulClose = function() {
-    const msgs = ['تشرفنا بخدمتك، في أمان الله.', 'سعدت بمساعدتك، مع السلامة.', 'العفو، أنا في الخدمة دائماً.'];
+    const msgs = ['تشرفنا بخدمتك، في أمان الله.', 'سعدت بمساعدتك، مع السلامة.'];
     const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
     const typingId = showTypingIndicator();
     setTimeout(() => {
@@ -1544,21 +731,13 @@ window.gptGracefulClose = function() {
     }, 500);
 };
 
-window.addEventListener('load', function() {
-    setTimeout(checkInputState, 100);
-});
-
-// تصدير الدوال للاستخدام الخارجي
-window.extractEntities = extractEntities;
-window.extractGovernorates = extractGovernorates;
-window.extractDependencies = extractDependencies;
-window.calculateSimilarity = calculateSimilarity;
-window.extractAreaNames = extractAreaNames;
 window.normalizeArabic = normalizeArabic;
 
-console.log('✅ GPT Agent v10.0 - Hybrid Semantic Edition initialized!');
-console.log('🚀 Features: Semantic Search • Smart Memory • Instant Loading');
-console.log('🧠 Hybrid Engine: E5 Embeddings + Neural Search + Keyword Matching');
-console.log('💾 Memory: Persistent Context with localStorage');
+console.log('✅ GPT Agent v11.0 - Ultimate Coordinator Edition initialized!');
+console.log('🎯 Architecture: Separation of Concerns');
+console.log('🧠 Hybrid Engine: E5 + Specialized Handlers');
+console.log('📋 gpt_activities.js → Activity Processing');
+console.log('🏭 gpt_areas.js → Industrial Zones Processing');
+console.log('📊 gpt_decision104.js → Decision 104 Processing');
 
-} // نهاية الشرط الواقي من التحميل المزدوج
+} النهايه
