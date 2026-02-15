@@ -394,3 +394,4 @@ class HybridSearchEngine {
 }
 
 export const hybridEngine = new HybridSearchEngine();
+window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
