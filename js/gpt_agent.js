@@ -1016,220 +1016,84 @@ function isQueryRelatedToContext(query, context) {
 
 // ==================== 🚀 المحرك الرئيسي المطور (Hybrid Precision Engine V2) ====================
 async function processUserQuery(query) {
-    const startTime = performance.now();
-    console.log("🚀 ========== بدء المعالجة الذكية (الهجينة) ==========");
-    console.log("📝 السؤال الأصلي:", query);
+    console.log("🚀 [Hybrid Engine] بدء التحليل الدلالي الاستباقي:", query);
 
-    // 1️⃣ التطهير الأولي واستخراج السياق الأساسي
-    const q = window.normalizeArabic(query);
-    const questionType = window.detectQuestionType(query);
+    const q = normalizeArabic(query);
+    const questionType = detectQuestionType(query);
     const context = AgentMemory.getContext();
 
-    // 🎯 [المسار اليدوي] الأسئلة الموجهة صراحة (Prefixes) - أولوية مطلقة للمستخدم
-    if (q.startsWith('المناطق الصناعيه:') || q.startsWith('مناطق صناعيه:') || q.startsWith('مناطق:')) {
-        const actualQuery = query.replace(/^(المناطق الصناعيه:|مناطق صناعيه:|مناطق:)/i, '').trim();
-        await AgentMemory.clear();
-        return await handleIndustrialQuery(actualQuery, window.detectQuestionType(actualQuery), null, null);
-    }
-
-    if (q.startsWith('الانشطه والتراخيص:') || q.startsWith('نشاط:') || q.startsWith('تراخيص:')) {
-        const actualQuery = query.replace(/^(الانشطه والتراخيص:|نشاط:|تراخيص:)/i, '').trim();
-        await AgentMemory.clear();
-        return await handleActivityQuery(actualQuery, window.detectQuestionType(actualQuery), null, null);
-    }
-
-    // 🎯 [المسار السريع] فحص الكلمات المفتاحية الصريحة للقرار 104 قبل استهلاك موارد المتجهات
-    if (typeof isDecision104Question === 'function' && isDecision104Question(query)) {
-        console.log("🎯 توجيه صريح لمحرك القرار 104 (Keyword Trigger)");
-        const decision104Response = handleDecision104Query(query, questionType);
-        if (decision104Response) return decision104Response;
-    }
-
-    // 🧠 2️⃣ [المرحلة المتجهية: الموجه الدلالي الاحترافي V2]
-    let vectorMatch = null;
-    let vectorTargetDB = null;
-    let vectorConfidence = 0;
+    // 1️⃣ المرحلة الأولى: الاستشارة الدلالية العميقة (Deep Semantic Consultation) ✨
+    // نجعل المحرك الدلالي يحلل "جوهر" السؤال قبل أي قاعدة نصية
+    let semanticMatch = null;
+    let semanticConfidence = 0;
 
     try {
-        console.log("⏳ جاري استشارة الموجه الدلالي (Semantic Routing)...");
-        const searchResponse = await hybridEngine.search(query);
-        
-        if (searchResponse && searchResponse.topMatch) {
-            vectorMatch = searchResponse.topMatch; 
-            // جراحة: استخلاص القاعدة من بيانات النتيجة مباشرة لضمان عدم الضياع
-            vectorTargetDB = searchResponse.topMatch.dbName || searchResponse.intent;
-            vectorConfidence = searchResponse.confidence;
-            console.log(`✨ القرار الدلالي: القاعدة [${vectorTargetDB}] | المعرف [${vectorMatch.id}]`);
-        }
-    } catch (e) {
-        console.error("⚠️ فشل الموجه الدلالي، الاعتماد على التحليل النصي فقط:", e);
-    }
-
-    // 🔄 3️⃣ [إدارة الذاكرة والسياق] - الحفاظ على تسلسل الأفكار
-    if (context && context.type !== 'clarification') {
-        const isRelated = isQueryRelatedToContext(query, context);
-        if (!isRelated) {
-            console.log("🔄 سؤال جديد غير مرتبط - مسح السياق المؤقت");
-            await AgentMemory.clear();
-        } else {
-            console.log("💡 السؤال مرتبط بالسياق الحالي، جاري المعالجة السياقية...");
-            const contextResponse = await handleContextualQuery(query, questionType, AgentMemory.getContext());
-            if (contextResponse) return contextResponse;
-        }
-    }
-    
-    // 🤔 4️⃣ [معالجة التوضيحات] - إذا كان المستخدم يختار من قائمة سابقة
-    if (context && context.type === 'clarification') {
-        const choice = context.data.find(c => normalizeArabic(c.name).split(/\s+/).some(word => q.includes(word)));
-        if (choice) {
-            if (choice.type === 'industrial') {
-                AgentMemory.setIndustrial(choice.data, query);
-                return formatIndustrialResponse(choice.data);
-            } else {
-                await AgentMemory.setActivity(choice.data, query);
-                return formatActivityResponse(choice.data, questionType);
+        if (window.hybridEngine && window.hybridEngine.isReady) {
+            const hybridResult = await window.hybridEngine.search(query, { topK: 1 });
+            if (hybridResult && hybridResult.topMatch) {
+                semanticMatch = hybridResult.topMatch;
+                semanticConfidence = hybridResult.confidence;
+                console.log(`🧠 تحليل النية الدلالية: [${semanticMatch.dbName}] بثقة ${Math.round(semanticConfidence * 100)}%`);
             }
         }
+    } catch (e) { console.warn("⚠️ فشل الاستجابة الدلالية:", e); }
+
+    // 2️⃣ المرحلة الثانية: حسم المسار (Intent Routing) ✨ [تعديل جراحي]
+    // إذا قال المحرك الدلالي أن هذا "قرار 104" أو "منطقة"، نلغي فوراً أي شكوك أخرى
+    if (semanticMatch && semanticConfidence > 0.28) { // عتبة حساسة للغة العربية
+        if (semanticMatch.dbName === 'decision104') {
+            console.log("🎯 حسم دلالي: السؤال يطلب حوافز/إعفاءات. التوجيه للقرار 104.");
+            return window.handleDecision104Query(query, questionType);
+        }
+        if (semanticMatch.dbName === 'areas' && (q.includes('مكان') || q.includes('اين') || semanticConfidence > 0.40)) {
+            console.log("🎯 حسم دلالي: السؤال عن منطقة صناعية. التوجيه للمناطق.");
+            const entities = extractEntities(query);
+            return await handleIndustrialQuery(query, questionType, { recommendation: 'areas' }, entities);
+        }
     }
 
-    // 🛠️ 5️⃣ [التحليل العميق] - استخراج الكيانات والنية العميقة
+    // 3️⃣ المرحلة الثالثة: المسار السريع للقواعد الصارمة (Explicit Overrides)
+    if (window.isDecision104Question && window.isDecision104Question(query)) {
+        return window.handleDecision104Query(query, questionType);
+    }
+
+    // 4️⃣ المرحلة الرابعة: الذاكرة والسياق
+    if (context && context.type !== 'clarification' && isQueryRelatedToContext(query, context)) {
+        const contextResponse = await handleContextualQuery(query, questionType, context);
+        if (contextResponse) return contextResponse;
+    }
+
+    // 5️⃣ المرحلة الخامسة: تحليل القواعد النصية (Fallback Only)
+    // هنا لا نصل إلا إذا كان السؤال غامضاً دلالياً
+    console.log("⏱️ التحليل النصي (كملاذ أخير)...");
     const analysisContext = analyzeContext(query, questionType);
     const entities = extractEntities(query);
-    const deepIntent = DeepIntentAnalyzer.analyze(query);
-    
-    // 🚀 6️⃣ [اتخاذ القرار الهجين - Hybrid Execution Logic]
 
-    // جراحة: لا تنفذ فوراً إلا إذا كانت الثقة الدلالية حقيقية (ليست ناتجة عن RRF فقط)
-    // وإذا كان المعرف يبدأ بـ decision104، نتأكد من إرساله للمحرك المتخصص دون "تنظيف"
-    if (vectorMatch && (vectorConfidence > 0.85 || vectorMatch.id.includes('decision104'))) {
-        console.log("🎯 استخراج مباشر من قاعدة البيانات بالمعرف:", vectorMatch.id);
-        
-        if (vectorTargetDB === 'decision104') {
-             // استخراج البيانات مباشرة من قاعدة البيانات
-             // استخراج البيانات من vectorMatch نفسه (يحتوي على original_data)
-             const originalData = vectorMatch.data?.original_data;
-             
-             if (originalData && originalData.sub_activity) {
-                 const activityName = originalData.sub_activity;
-                 const sector = originalData.sector_type === 'القطاع أ' ? 'A' : 'B';
-                 
-                 console.log(`✅ تم استخراج النشاط من المحرك الدلالي: ${activityName}`);
-                 
-                 // بناء كائن النشاط بنفس البنية المتوقعة
-                 const itemData = {
-                     activity: activityName,
-                     mainSector: originalData.sector,
-                     subSector: originalData.main_activity,
-                     sector: sector
-                 };
-                 
-                 // حفظ في الذاكرة
-                 AgentMemory.setDecisionActivity(itemData, query);
-                 
-                 // عرض النتيجة باستخدام الدالة الصحيحة
-                 return formatSingleActivityInDecision104WithIncentives(
-                     query,
-                     itemData,
-                     'both'
-                 );
-                 
-             } else {
-                 console.warn(`⚠️ لم يتم العثور على البيانات في vectorMatch - استخدام البحث النصي`);
-                 // الاستمرار للبحث النصي كخطة بديلة
-                 return handleDecision104Query(query, questionType);
-             }
-        } else if (vectorTargetDB === 'activities') {
-            const act = masterActivityDB.find(a => a.value === vectorMatch.id);
-            if (act) { await AgentMemory.setActivity(act, query); return formatActivityResponse(act, questionType); }
-        } else if (vectorTargetDB === 'areas') {
-            const area = industrialAreasData.find(a => a.name === vectorMatch.id);
-            if (area) { await AgentMemory.setIndustrial(area, query); return formatIndustrialResponse(area); }
-        }
- }
-   
-
-     // ب. [التوجيه الدلالي الذكي] تنفيذ بناءً على النية المصنفة
-                if (vectorMatch && vectorConfidence > 0.65) {
-    // استخدام النص الأصلي من المتجه بدلاً من المعرّف
-    const originalText = vectorMatch.data?.text || query;
-    
-    switch (vectorTargetDB) {
-        case 'decision104':
-            console.log("⚖️ مسار القرار 104 المتخصص");
-            // استخدام النص الأصلي للبحث
-            const res104 = await handleDecision104Query(originalText, questionType);
-            if (res104 && !res104.includes('لم أجد معلومات')) return res104;
-            break;
-
-        case 'activities':
-            console.log("📋 مسار التراخيص والأنشطة (الدلالي المباشر)");
-            // جراحة: ثق في نتيجة المتجه واستخدم بياناتها فوراً دون إعادة البحث نصياً
-            const directAct = vectorMatch.data?.original_data || vectorMatch.data;
-            if (directAct) {
-                await AgentMemory.setActivity(directAct, query);
-                return formatActivityResponse(directAct, questionType);
-            }
-            break;
-
-        case 'areas':
-            console.log("🏭 مسار المناطق الجغرافية");
-            const areaData = vectorMatch.data?.original_data;
-            if (areaData && areaData.name) {
-                const area = industrialAreasData.find(a => a.name === areaData.name);
-                if (area) {
-                    await AgentMemory.setIndustrial(area, query);
-                    return formatIndustrialResponse(area);
-                }
-            }
-            // Fallback: البحث بالنص
-            const resArea = await handleIndustrialQuery(originalText, questionType, analysisContext, entities);
-            if (resArea) return resArea;
-            break;
-    }
-}
-
-    // ج. [آلية التوضيح] - إذا كان هناك التباس دلالي
-    if (analysisContext.needsClarification && vectorConfidence < 0.80) {
-        const clarification = requestClarification(query, analysisContext, entities, questionType);
-        if (clarification) return clarification;
-    }
-    
-    // د. [صمام الأمان النهائي - Fallback] - العودة للمنطق النصي التقليدي
-    console.log("🛡️ تفعيل صمام الأمان: البحث في المسارات البديلة");
+    // تصحيح ذكي: إذا كان السؤال يحتوي على "مكان" أو "صناعي" فهو غالباً مناطق وليس نشاط
     const isClearlyIndustrial = checkIfIndustrialQuestion(query, questionType, analysisContext, entities);
     const isClearlyActivity = checkIfActivityQuestion(query, questionType, analysisContext, entities);
-    
-    if (analysisContext.recommendation === 'areas' || (isClearlyIndustrial && !isClearlyActivity)) {
-        const res = await handleIndustrialQuery(query, questionType, analysisContext, entities);
-        if (res) return res;
-        return await handleActivityQuery(query, questionType, analysisContext, entities);
-    } 
-    
-    if (analysisContext.recommendation === 'activities' || (isClearlyActivity && !isClearlyIndustrial)) {
-        const res = await handleActivityQuery(query, questionType, analysisContext, entities);
-        if (res) return res;
+
+    // تنفيذ الاستعلام بناءً على الوضوح
+    if (isClearlyIndustrial && semanticMatch?.dbName !== 'activities') {
         return await handleIndustrialQuery(query, questionType, analysisContext, entities);
     }
 
-    // هـ. [محاولة الإنقاذ الأخيرة] - محاولة دلالية بحد أدنى من الثقة
-    if (vectorMatch && vectorConfidence > 0.50) {
-        console.log("🔍 محاولة إنقاذ أخيرة بالمعطيات المتجهية...");
-        if (vectorTargetDB === 'activities') {
-            const act = masterActivityDB.find(a => a.value === vectorMatch.id);
-            if (act) return formatActivityResponse(act, questionType);
-        } else if (vectorTargetDB === 'areas') {
-            const area = industrialAreasData.find(a => a.name === vectorMatch.id);
-            if (area) return formatIndustrialResponse(area);
-        }
+    if (isClearlyActivity) {
+        // نتحقق مرة أخرى: هل السؤال يحتوي على كلمات "حوافز" دلالية؟
+        if (semanticMatch?.dbName === 'decision104') return window.handleDecision104Query(query, questionType);
+        return await handleActivityQuery(query, questionType, analysisContext, entities);
     }
 
-    const endTime = performance.now();
-    console.log(`⏱️ إجمالي زمن المعالجة: ${(endTime - startTime).toFixed(2)}ms`);
+    // 6️⃣ المرحلة السادسة: الرهان الأخير (Semantic Final Fallback)
+    if (semanticMatch) {
+        console.log("🚀 المحاولة الأخيرة بناءً على أقرب Vector...");
+        if (semanticMatch.dbName === 'activities') return formatActivityResponse(semanticMatch.data.original_data, questionType);
+        if (semanticMatch.dbName === 'areas') return formatIndustrialResponse(semanticMatch.data.original_data);
+        if (semanticMatch.dbName === 'decision104') return window.handleDecision104Query(query, questionType);
+    }
 
-    console.log("❌ لم يتم العثور على إجابة دقيقة عبر كافة المسارات");
     return generateDefaultResponse(query);
 }
-
 // ==================== 📝 تنسيق رسالة السياق ====================
 function formatContextMessage(contextAnalysis) {
     if (!contextAnalysis.related || !contextAnalysis.context) return null;
@@ -1898,3 +1762,4 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
