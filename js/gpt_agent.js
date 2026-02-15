@@ -108,7 +108,7 @@ const chatHTML = `
             <div style="font-size: 60px; margin-bottom: 20px;">🧠</div>
             <h2 style="color: white; margin: 0 0 15px 0; font-size: 24px;">تهيئة المحرك الدلالي</h2>
             <p style="color: rgba(255,255,255,0.9); margin: 0 0 25px 0; font-size: 16px;">
-                جاري تحميل نموذج E5 للذكاء الاصطناعي...<br>
+                جاري تحميل البيانات...<br>
                 <small style="opacity: 0.8;">(هذه العملية تتم مرة واحدة فقط)</small>
             </p>
             <div style="background: rgba(255,255,255,0.2); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 15px;">
@@ -628,12 +628,18 @@ async function smartSearch(query, database) {
     
     if (hybridResults && hybridResults.topMatch && hybridResults.confidence > 0.5) {
         console.log('✅ نتيجة من المحرك الدلالي');
-        return {
+        
+        // 🔧 إضافة معلومات قاعدة البيانات المصدر
+        const resultWithMeta = {
             source: 'hybrid',
             data: hybridResults.topMatch.data.original_data,
             confidence: hybridResults.confidence,
-            allResults: hybridResults.results
+            allResults: hybridResults.results,
+            dbName: hybridResults.topMatch.dbName || hybridResults.intent // اسم قاعدة البيانات
         };
+        
+        console.log(`🎯 المصدر: ${resultWithMeta.dbName}`);
+        return resultWithMeta;
     }
 
     // Fallback للبحث التقليدي
@@ -646,7 +652,8 @@ async function smartSearch(query, database) {
                 source: 'neural',
                 data: results.results[0].originalData,
                 confidence: results.results[0].finalScore / 1000,
-                allResults: results.results
+                allResults: results.results,
+                dbName: 'activities'
             };
         }
     }
@@ -658,7 +665,8 @@ async function smartSearch(query, database) {
                 source: 'neural',
                 data: result,
                 confidence: 0.7,
-                allResults: [result]
+                allResults: [result],
+                dbName: 'areas'
             };
         }
     }
@@ -718,12 +726,19 @@ async function handleActivityQuery(query, questionType, analysisContext, entitie
     const searchResult = await smartSearch(query, 'activities');
     
     if (searchResult && searchResult.data) {
-        console.log(`✅ وجدت نشاط من ${searchResult.source}: ${searchResult.data['النشاط المحدد']}`);
+        // 🔧 استخراج البيانات بشكل آمن
+        const activityName = searchResult.data['النشاط المحدد'] || 
+                            searchResult.data['النشاط_المحدد'] || 
+                            searchResult.data['الاسم'] || 
+                            searchResult.data.name || 
+                            'نشاط غير محدد';
+        
+        console.log(`✅ وجدت نشاط من ${searchResult.source}: ${activityName}`);
         
         // حفظ في الذاكرة
         const activityData = {
-            value: searchResult.data.value,
-            text: searchResult.data['النشاط المحدد']
+            value: searchResult.data.value || searchResult.data.id || 'unknown',
+            text: activityName
         };
         await window.AgentMemory.setActivity(activityData, query);
         
@@ -804,17 +819,72 @@ function formatIndustrialResponse(area, questionType) {
 }
 
 function formatActivityResponse(activity, questionType) {
-    let html = `<div class="info-card activity">
-        <div class="info-card-header">📋 ${activity['النشاط المحدد']}</div>`;
+    // 🔧 استخراج آمن للبيانات من مصادر متعددة
+    const activityName = activity['النشاط المحدد'] || 
+                        activity['النشاط_المحدد'] || 
+                        activity['الاسم'] || 
+                        activity.name || 
+                        'نشاط غير محدد';
     
-    if (activity['النشاط الرئيسي']) {
-        html += `<div class="info-row"><strong>النشاط الرئيسي:</strong> ${activity['النشاط الرئيسي']}</div>`;
+    const mainActivity = activity['النشاط الرئيسي'] || 
+                        activity['النشاط_الرئيسي'] || 
+                        activity['القطاع_العام'] || 
+                        activity.sector || 
+                        null;
+    
+    const licensingAuthority = activity['الجهة المُصدرة للترخيص'] || 
+                              activity['الجهة_المصدرة'] || 
+                              activity['جهة_الولاية'] || 
+                              activity.authority || 
+                              null;
+    
+    const legislation = activity['السند التشريعي'] || 
+                       activity['السند_التشريعي'] || 
+                       activity.legislation || 
+                       null;
+    
+    // 🔧 معالجة خاصة لبيانات القرار 104
+    const isDecision104 = activity['القطاع'] || activity.sector_type;
+    
+    let html = `<div class="info-card activity">
+        <div class="info-card-header">📋 ${activityName}</div>`;
+    
+    if (mainActivity) {
+        html += `<div class="info-row"><strong>النشاط الرئيسي:</strong> ${mainActivity}</div>`;
     }
-    if (activity['الجهة المُصدرة للترخيص']) {
-        html += `<div class="info-row"><strong>الجهة المُصدرة:</strong> ${activity['الجهة المُصدرة للترخيص']}</div>`;
+    
+    if (isDecision104) {
+        const sector = activity['القطاع'] || activity.sector_type || 'غير محدد';
+        html += `<div class="info-row"><strong>القطاع (القرار 104):</strong> ${sector}</div>`;
+        
+        const incentives = activity['الحوافز'] || activity.incentives;
+        if (incentives) {
+            html += `<div class="info-row"><strong>الحوافز:</strong> ${incentives}</div>`;
+        }
+        
+        const exemptions = activity['الإعفاءات'] || activity.exemptions;
+        if (exemptions) {
+            html += `<div class="info-row"><strong>الإعفاءات:</strong> ${exemptions}</div>`;
+        }
     }
-    if (activity['السند التشريعي']) {
-        html += `<div class="info-row"><strong>السند التشريعي:</strong> ${activity['السند التشريعي']}</div>`;
+    
+    if (licensingAuthority) {
+        html += `<div class="info-row"><strong>الجهة المُصدرة:</strong> ${licensingAuthority}</div>`;
+    }
+    
+    if (legislation) {
+        html += `<div class="info-row"><strong>السند التشريعي:</strong> ${legislation}</div>`;
+    }
+    
+    // 🔧 إضافة معلومات إضافية من البيانات الأصلية
+    const guide = activity['دليل_الترخيص'] || activity.guide;
+    if (guide && guide !== 'لا يوجد') {
+        html += `<div class="info-row"><strong>دليل الترخيص:</strong> <a href="${guide}" target="_blank">تحميل الدليل</a></div>`;
+    }
+    
+    const notes = activity['ملاحظات_فنية'] || activity.technical_notes;
+    if (notes && notes !== 'لا يوجد') {
+        html += `<div class="info-row"><strong>ملاحظات فنية:</strong> ${notes}</div>`;
     }
     
     html += `</div>`;
@@ -909,17 +979,20 @@ function escapeForJS(text) {
 async function processUserQuery(query) {
     console.log("🔍 معالجة السؤال:", query);
 
-    // 🎯 توجيه مباشر لمحرك القرار 104
-    if (window.isDecision104Question && window.isDecision104Question(query)) {
-        console.log("🎯 توجيه السؤال لمحرك القرار 104");
-        const decision104Response = window.handleDecision104Query(query, detectQuestionType(query));
-        if (decision104Response) return decision104Response;
-    }
-
     const q = normalizeArabic(query);
     const questionType = detectQuestionType(query);
     const context = window.AgentMemory.getContext();
 
+    // 🎯 توجيه مباشر لمحرك القرار 104 - يأخذ أولوية عالية
+    if (window.isDecision104Question && window.isDecision104Question(query)) {
+        console.log("🎯 توجيه السؤال لمحرك القرار 104");
+        const decision104Response = window.handleDecision104Query(query, questionType);
+        if (decision104Response) return decision104Response;
+    }
+
+    // 🔧 كشف إضافي لأسئلة القرار 104 من المحرك الدلالي
+    const isLikelyDecision104 = /اعفاء|اعفاءات|إعفاء|إعفاءات|حافز|حوافز|قرار.*104|104|قطاع\s*(أ|ا|ب)/i.test(query);
+    
     // معالجة الأسئلة الموجهة صراحة
     if (q.startsWith('المناطق الصناعيه:') || q.startsWith('مناطق صناعيه:') || q.startsWith('مناطق:')) {
         const actualQuery = query.replace(/^(المناطق الصناعيه:|مناطق صناعيه:|مناطق:)/i, '').trim();
@@ -945,6 +1018,22 @@ async function processUserQuery(query) {
 
     console.log("📊 السياق:", analysisContext);
     console.log("🎯 الكيانات:", entities);
+
+    // 🔧 إذا كان السؤال عن إعفاءات/حوافز، استخدم المحرك الدلالي مباشرة
+    if (isLikelyDecision104) {
+        console.log("🎯 سؤال محتمل عن القرار 104 - استخدام البحث الدلالي...");
+        const searchResult = await smartSearch(query, 'activities');
+        
+        if (searchResult && searchResult.data) {
+            // التحقق من نوع البيانات المُرجعة
+            const dbName = searchResult.allResults[0]?.dbName;
+            
+            if (dbName === 'decision104') {
+                console.log("✅ تم العثور على نتيجة من قاعدة القرار 104");
+                return formatActivityResponse(searchResult.data, questionType);
+            }
+        }
+    }
 
     // البحث الذكي
     if (analysisContext.recommendation === 'areas' || questionType.isIndustrial) {
