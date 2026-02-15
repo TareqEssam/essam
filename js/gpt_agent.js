@@ -1040,7 +1040,7 @@ async function processUserQuery(query) {
 
     try {
         console.log("⏳ جاري استشارة الموجه الدلالي (Semantic Routing)...");
-        const searchResponse = await hybridEngine.search(query);
+        const searchResponse = await window.hybridEngine.search(query);
         
         if (searchResponse && searchResponse.topMatch) {
             vectorMatch = searchResponse.topMatch; 
@@ -1887,6 +1887,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
