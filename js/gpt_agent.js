@@ -1009,9 +1009,9 @@ function isQueryRelatedToContext(query, context) {
 
 // ==================== المحرك الرئيسي ====================
 async function processUserQuery(query) {
-    console.log("🚀 [Hybrid Engine] بدء المعالجة الشاملة:", query);
+    console.log("🚀 [Hybrid Engine] بدء المعالجة الشاملة المنهجية:", query);
 
-    // 1️⃣ المرحلة الأولى: المسار السريع (Quick Routing) - لا تلمسها
+    // 1️⃣ المرحلة الأولى: المسار السريع (Quick Routing) - (قواعد نصية صريحة للقرار 104)
     if (window.isDecision104Question && window.isDecision104Question(query)) {
         console.log("🎯 العقل المدبر: توجيه السؤال لمحرك القرار 104 المطور");
         const decision104Response = window.handleDecision104Query(query, detectQuestionType(query));
@@ -1022,7 +1022,7 @@ async function processUserQuery(query) {
     const questionType = detectQuestionType(query);
     const context = AgentMemory.getContext();
 
-    // 2️⃣ المرحلة الثانية: استشارة المحرك الدلالي (Semantic Consultant) ✨ [جديد]
+    // 2️⃣ المرحلة الثانية: التحليل الدلالي وحسم النية (Semantic Intent Gating) ✨ [تطوير علمي]
     let semanticMatch = null;
     try {
         if (window.hybridEngine && window.hybridEngine.isReady) {
@@ -1030,11 +1030,19 @@ async function processUserQuery(query) {
             if (hybridResult && hybridResult.confidence > 0.30) {
                 semanticMatch = hybridResult.topMatch;
                 console.log(`🧠 المحرك الدلالي يقترح: [${semanticMatch.dbName}] بثقة ${Math.round(semanticMatch.score * 100)}%`);
+
+                // ⚖️ الحسم الدلالي العلمي:
+                // إذا فهم المحرك الدلالي أن النية هي "القرار 104" (بناءً على مفاهيم مثل إعفاءات/مزايا)
+                // نقوم بتوجيه المسار فوراً للقرار 104 ونوقف البحث في الأنشطة التقليدية
+                if (semanticMatch.dbName === 'decision104' && semanticMatch.score > 0.35) {
+                    console.log("🎯 توجيه دلالي حاسم: السؤال يخص حوافز القرار 104 (رغم وجود كلمات مضللة)");
+                    return window.handleDecision104Query(query, questionType);
+                }
             }
         }
-    } catch (e) { console.warn("⚠️ المحرك الدلالي غير متاح حالياً، الاستمرار بالمنطق النصي."); }
+    } catch (e) { console.warn("⚠️ المحرك الدلالي تعذر استشارته، الاستمرار بالمنطق النصي الاحتياطي."); }
 
-    // 3️⃣ المرحلة الثالثة: الأسئلة الموجهة صراحة والذاكرة (Logic First)
+    // 3️⃣ المرحلة الثالثة: الأسئلة الموجهة صراحة والذاكرة (Logic First) - [كما هي تماماً]
     if (q.startsWith('المناطق الصناعيه:') || q.startsWith('مناطق صناعيه:') || q.startsWith('مناطق:')) {
         const actualQuery = query.replace(/^(المناطق الصناعيه:|مناطق صناعيه:|مناطق:)/i, '').trim();
         await AgentMemory.clear();
@@ -1076,20 +1084,19 @@ async function processUserQuery(query) {
         }
     }
 
-    // 4️⃣ المرحلة الرابعة: التحليل العميق (Deep Rules Analysis)
+    // 4️⃣ المرحلة الرابعة: التحليل العميق (Deep Rules Analysis) - [كما هي تماماً]
     console.log("⏱️ التحليل النصي الشامل...");
     const analysisContext = analyzeContext(query, questionType);
     const entities = extractEntities(query);
     const deepIntent = DeepIntentAnalyzer.analyze(query);
-    console.log("🧠 DeepIntent نتيجة:", deepIntent);
-
-    // 💡 استخدام المحرك الدلالي لترجيح التوصية إذا كانت ملتبسة [جديد]
+    
+    // استخدام المحرك الدلالي لترجيح التوصية إذا كانت ملتبسة
     if (analysisContext.recommendation === 'ambiguous' && semanticMatch) {
         console.log("⚖️ ترجيح التوصية الملتبسة بناءً على المحرك الدلالي");
         analysisContext.recommendation = (semanticMatch.dbName === 'areas') ? 'areas' : 'activities';
     }
 
-    // 5️⃣ المرحلة الخامسة: تنفيذ الاستعلامات (Rule-Based Execution)
+    // 5️⃣ المرحلة الخامسة: تنفيذ الاستعلامات (Rule-Based Execution) - [كما هي تماماً]
     if (deepIntent.intent === 'industrial' && (deepIntent.confidence >= 80 || q.includes('منطق'))) {
         const response = await handleIndustrialQuery(query, questionType, analysisContext, entities);
         if (response) return response;
@@ -1101,7 +1108,6 @@ async function processUserQuery(query) {
         if (response) return response;
     }
 
-    // طلب التوضيح إذا لزم الأمر (قبل المحاولة الدلالية الأخيرة)
     if (analysisContext.needsClarification && !semanticMatch) {
         const clarification = requestClarification(query, analysisContext, entities, questionType);
         if (clarification) return clarification;
@@ -1110,7 +1116,6 @@ async function processUserQuery(query) {
     const isClearlyIndustrial = checkIfIndustrialQuestion(query, questionType, analysisContext, entities);
     const isClearlyActivity = checkIfActivityQuestion(query, questionType, analysisContext, entities);
 
-    // التنفيذ بناءً على الوضوح والتوصية
     if (isClearlyIndustrial && !isClearlyActivity) {
         const response = await handleIndustrialQuery(query, questionType, analysisContext, entities);
         if (response) return response;
@@ -1121,7 +1126,6 @@ async function processUserQuery(query) {
         if (response) return response;
     }
 
-    // تنفيذ التوصية (Areas / Activities)
     if (analysisContext.recommendation === 'areas') {
         const res = await handleIndustrialQuery(query, questionType, analysisContext, entities) || 
                     await handleActivityQuery(query, questionType, analysisContext, entities);
@@ -1132,8 +1136,7 @@ async function processUserQuery(query) {
         if (res) return res;
     }
 
-    // 6️⃣ المرحلة السادسة: الرهان الأخير (Semantic Fallback) ✨ [جديد]
-    // إذا فشلت كل القواعد النصية، نثق في المحرك الدلالي كحل أخير
+    // 6️⃣ المرحلة السادسة: الرهان الأخير (Semantic Fallback) - [كما هي تماماً]
     if (semanticMatch && semanticMatch.score > 0.40) {
         console.log("🚀 استجابة المحرك الدلالي (كحل أخير):", semanticMatch.dbName);
         if (semanticMatch.dbName === 'activities') {
@@ -1147,10 +1150,8 @@ async function processUserQuery(query) {
         }
     }
 
-    console.log("❌ لم يتم العثور على إجابة منطقية أو دلالية");
     return generateDefaultResponse(query);
 }
-
 // ==================== 📝 تنسيق رسالة السياق ====================
 function formatContextMessage(contextAnalysis) {
     if (!contextAnalysis.related || !contextAnalysis.context) return null;
@@ -1821,4 +1822,5 @@ window.initializeGptSystem = async function() {
 window.addEventListener('load', window.initializeGptSystem);
 
 } // نهاية الملف gpt_agent.js
+
 
