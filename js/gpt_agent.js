@@ -1137,7 +1137,7 @@ async function processUserQuery(query) {
    
 
      // ب. [التوجيه الدلالي الذكي] تنفيذ بناءً على النية المصنفة
-                if (vectorMatch && vectorConfidence > 0.65) {
+                if (vectorMatch && vectorConfidence > 0.30) {
     // استخدام النص الأصلي من المتجه بدلاً من المعرّف
     const originalText = vectorMatch.data?.text || query;
     
@@ -1887,6 +1887,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
