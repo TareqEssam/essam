@@ -186,7 +186,9 @@ document.body.insertAdjacentHTML('beforeend', chatHTML);
 
 // ==================== أدوات المعالجة اللغوية ====================
 
-function normalizeArabic(text) {
+// ==================== أدوات المعالجة اللغوية العالمية ====================
+
+window.normalizeArabic = function(text) {
     if (!text) return "";
     return text.toString()
         .replace(/[أإآٱ]/g, 'ا')
@@ -198,16 +200,20 @@ function normalizeArabic(text) {
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase();
-}
+};
 
 window.GPT_AGENT.stopWords = ['في', 'من', 'الى', 'على', 'عن', 'هل', 'ما', 'هو', 'هي', 'ذلك', 'تلك', 'لي', 'لك', 'كيف', 'ماذا', 'متى', 'اين', 'لماذا', 'كم'];
 
-function extractKeywords(text) {
-    const normalized = normalizeArabic(text);
+window.extractKeywords = function(text) {
+    const normalized = window.normalizeArabic(text);
     const stopWordsList = window.GPT_AGENT.stopWords || [];
     return normalized.split(/\s+/)
         .filter(word => word.length > 2 && !stopWordsList.includes(word));
-}
+};
+
+// للاستخدام الداخلي أيضاً
+const normalizeArabic = window.normalizeArabic;
+const extractKeywords = window.extractKeywords;
 
 // كاشف نوع السؤال - الإصدار المحسّن
 window.detectQuestionType = function(query) {
@@ -836,20 +842,7 @@ function searchIndustrialZonesWithNeural(query) {
     return null;
 }
 
-// ==================== دوال مساعدة جديدة ====================
-window.normalizeArabic = function(text) {
-    if (!text) return "";
-    return text.toString()
-        .replace(/[أإآٱ]/g, 'ا')
-        .replace(/[ةه]/g, 'ه')
-        .replace(/[ىي]/g, 'ي')
-        .replace(/ؤ/g, 'و')
-        .replace(/ئ/g, 'ي')
-        .replace(/[\u064B-\u065F\u0670]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-};
+
 
 window.generateDefaultResponse = function(query) {
     const q = normalizeArabic(query);
@@ -1766,6 +1759,9 @@ window.addEventListener('load', function() {
 });
 
 // دوال مشتركة للكيانات والبحث
+// دوال مشتركة للكيانات والبحث والتحليل اللغوي
+window.normalizeArabic = normalizeArabic;
+window.extractKeywords = extractKeywords;
 window.extractEntities = extractEntities;
 window.extractGovernorates = extractGovernorates;
 window.extractDependencies = extractDependencies;
@@ -1825,3 +1821,4 @@ window.initializeGptSystem = async function() {
 window.addEventListener('load', window.initializeGptSystem);
 
 } // نهاية الملف gpt_agent.js
+
