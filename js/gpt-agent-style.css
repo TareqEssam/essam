@@ -1,0 +1,1197 @@
+/****************************************************************************
+ * 🤖 GPT-Like Agent v9.0 - ULTIMATE PRECISION EDITION
+ * 
+ * ⚡ الميزات الثورية:
+ * ✓ ذكاء اصطناعي متقدم لفهم الأسئلة المعقدة
+ * ✓ استخراج بيانات بدقة 100% من جميع المصادر
+ * ✓ ربط ديناميكي مع القرار 104
+ * ✓ معالجة لغوية طبيعية عربية قوية
+ * ✓ نظام ذاكرة سياقية ذكي
+ * ✓ واجهة مستخدم تفاعلية محسنة
+ ****************************************************************************/
+
+/* زر العائم مع خصائص التحريك */
+:root {
+    --ai-primary: #00f2fe;
+    --ai-secondary: #4facfe;
+    --ai-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --user-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.4);
+    --shadow-premium: 0 20px 50px rgba(0, 0, 0, 0.15);
+    --font-main: 'Tajawal', sans-serif;
+}
+
+.gpt-float-btn { 
+    position: fixed; 
+    bottom: 30px; 
+    right: 30px; 
+    width: 65px; 
+    height: 65px; 
+    background: var(--ai-gradient); 
+    border-radius: 50%; 
+    box-shadow: 0 10px 30px rgba(79, 172, 254, 0.5); 
+    cursor: grab; 
+    z-index: 999999; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 2px solid rgba(255,255,255,0.3);
+}
+
+.gpt-float-btn i { 
+    font-size: 28px; 
+    color: white; 
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); 
+}
+
+/* تأثير هالة ضوئية خلف الزر */
+.gpt-float-btn::before {
+    content: ''; 
+    position: absolute; 
+    width: 100%; 
+    height: 100%;
+    border-radius: 50%; 
+    background: var(--ai-primary);
+    opacity: 0.6; 
+    animation: ai-ripple 2s infinite; 
+    z-index: -1;
+}
+
+@keyframes ai-ripple {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* إضافة تأثير النبض الذكي */
+.gpt-float-btn::after {
+    content: ''; 
+    position: absolute; 
+    width: 100%; 
+    height: 100%;
+    border-radius: 50%; 
+    background: var(--ai-primary);
+    opacity: 0.5; 
+    animation: ai-pulse 2s infinite; 
+    z-index: -1;
+}
+
+@keyframes ai-pulse {
+    0% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+.gpt-float-btn:active { 
+    cursor: grabbing; 
+}
+
+.gpt-float-btn:hover { 
+    transform: scale(1.1); 
+    box-shadow: 0 6px 30px rgba(16, 163, 127, 0.6); 
+}
+
+/* نافذة المحادثة - الوضع الافتراضي للكمبيوتر */
+.gpt-chat-container { 
+    position: fixed; 
+    bottom: 110px; 
+    right: 30px; 
+    width: 420px; 
+    height: clamp(500px, 75vh, 750px); 
+    background: var(--glass-bg);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    border-radius: 30px; 
+    box-shadow: var(--shadow-premium); 
+    display: none; 
+    flex-direction: column; 
+    z-index: 999998; 
+    overflow: hidden; 
+    border: 1px solid var(--glass-border);
+    font-family: var(--font-main);
+    transform-origin: bottom right;
+    animation: gpt-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes gpt-pop {
+    from { transform: scale(0.8) translateY(50px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* الجزء الجديد لملء الشاشة بالكامل (Full Screen) على الموبايل */
+@media (max-width: 600px) {
+    .gpt-chat-container {
+        width: 100% !important;     /* ملء العرض بالكامل */
+        height: 100% !important;    /* ملء الارتفاع بالكامل */
+        height: 100dvh !important;  /* استخدام الارتفاع الديناميكي لتجنب مشاكل شريط أدوات المتصفح */
+        left: 0 !important;         /* الالتصاق بالحافة اليسرى */
+        right: 0 !important;        /* الالتصاق بالحافة اليمنى */
+        bottom: 0 !important;       /* الالتصاق بالحافة السفلية */
+        top: 0 !important;          /* الالتصاق بالحافة العلوية */
+        border-radius: 0 !important; /* إلغاء انحناء الحواف ليبدو كتطبيق أصيل */
+        max-width: 100% !important;
+        z-index: 2147483647 !important; /* ضمان الظهور فوق أي عنصر آخر */
+    }
+
+    /* تعديل إضافي لضمان انسيابية الرسائل داخل الشاشة الكاملة */
+    .gpt-messages {
+        flex: 1;
+        max-height: none !important; 
+    }
+}
+    
+    /* تقليل حجم الهيدر في الموبايل */
+    .gpt-header {
+        padding: 12px 16px !important;
+        min-height: 60px !important;
+    }
+    
+    .gpt-title {
+        font-size: 0.95rem !important;
+    }
+    
+    .gpt-header-actions {
+        gap: 8px !important;
+    }
+    
+    .gpt-header-actions i {
+        font-size: 16px !important;
+    }
+    
+    /* تقليل حجم الفوتر في الموبايل */
+    .gpt-input-area {
+        padding: 10px 12px !important;
+    }
+    
+    .gpt-input {
+        padding: 10px !important;
+        font-size: 0.9rem !important;
+    }
+    
+    /* زيادة مساحة المحادثة */
+    .gpt-messages {
+        padding: 15px !important;
+    }
+}
+
+/* الكود الجديد: ملء الشاشة بالكامل 100% واستغلال المساحة في وضع الدوران */
+/* الكود الجديد: السيطرة الكاملة على الأبعاد في وضع الدوران */
+@media (max-height: 500px) and (orientation: landscape) {
+    .gpt-chat-container {
+        /* 1. كسر قيود الارتفاع الأدنى (أهم خطوة جراحية) */
+        min-height: 0 !important; 
+        max-height: 100dvh !important;
+        height: 100dvh !important;
+        
+        /* 2. التثبيت في الحواف الأربعة (Full Screen) */
+        top: 0 !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        
+        /* 3. تنظيف الواجهة */
+        border-radius: 0 !important;
+        margin: 0 !important;
+        transform: none !important;
+    }
+    
+    /* 4. ضغط الهيدر لترك مساحة للرسائل */
+    .gpt-header {
+        padding: 4px 15px !important;
+        min-height: 35px !important;
+        height: 35px !important;
+    }
+    
+    .gpt-title {
+        font-size: 0.8rem !important;
+    }
+
+    /* 5. موازنة منطقة الرسائل */
+    .gpt-messages {
+        flex: 1;
+        padding: 8px !important;
+        gap: 8px !important;
+    }
+
+    /* 6. ضغط منطقة الإدخال */
+    .gpt-input-area {
+        padding: 5px 10px !important;
+    }
+    
+    .gpt-input {
+        padding: 5px 10px !important;
+        font-size: 0.85rem !important;
+    }
+}
+
+/* 🆕 أزرار الاستكشاف المُصغّرة */
+.choice-btn[onclick*="عرض كل المناطق"],
+.choice-btn[onclick*="كم عدد المناطق"] {
+    background: linear-gradient(135deg, #ffffff, #f8f9fa);
+    border: 1.5px solid #adb5bd;
+    padding: 10px 14px;
+    transition: all 0.2s ease;
+}
+
+.choice-btn[onclick*="عرض كل المناطق"]:hover,
+.choice-btn[onclick*="كم عدد المناطق"]:hover {
+    background: linear-gradient(135deg, #e7f5ff, #d0ebff);
+    border-color: #228be6;
+    transform: translateX(-3px);
+    box-shadow: 0 3px 10px rgba(34, 139, 230, 0.15);
+}
+
+.gpt-header { 
+    background: var(--ai-gradient); 
+    padding: 18px 20px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    color: white; 
+    min-height: 70px;
+}
+
+.gpt-title { 
+    font-weight: 700; 
+    font-size: 1.05rem; 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+}
+
+.gpt-status { 
+    width: 8px; 
+    height: 8px; 
+    background: #4ade80; 
+    border-radius: 50%; 
+    animation: pulse 2s infinite; 
+}
+
+.gpt-close { 
+    cursor: pointer; 
+    color: rgba(255,255,255,0.9); 
+    font-size: 20px; 
+    transition: 0.2s; 
+    padding: 6px;
+    border-radius: 6px;
+}
+
+.gpt-close:hover { 
+    color: white; 
+    background: rgba(255,255,255,0.1);
+    transform: rotate(90deg); 
+}
+
+/* تحسين الهيدر إجراءات */
+.gpt-header-actions { 
+    display: flex; 
+    gap: 10px; 
+    align-items: center; 
+}
+
+.gpt-clear-btn,
+.gpt-settings-btn,
+.gpt-expand-btn { 
+    cursor: pointer; 
+    color: rgba(255,255,255,0.8); 
+    font-size: 18px; 
+    transition: 0.2s; 
+    padding: 6px; 
+    border-radius: 6px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gpt-clear-btn:hover,
+.gpt-settings-btn:hover,
+.gpt-expand-btn:hover { 
+    color: white; 
+    background: rgba(255,255,255,0.1); 
+}
+
+.gpt-messages { 
+    flex: 1; 
+    overflow-y: auto; 
+    padding: 20px; 
+    background: #f7f7f8; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 16px; 
+}
+
+/* === 🔄 تعديل مواضع الرسائل === */
+.message-row { 
+    display: flex; 
+    gap: 12px; 
+    animation: messageSlide 0.3s ease-out; 
+}
+
+/* المستخدم على اليمين */
+.message-row.user { 
+    flex-direction: row; /* تغيير من row-reverse إلى row */
+    justify-content: flex-end; /* محاذاة لليمين */
+} 
+
+/* المساعد على اليسار */
+.message-row.ai { 
+    flex-direction: row; /* محافظة على اليسار */
+    justify-content: flex-start; /* محاذاة لليسار */
+}
+
+.avatar { 
+    width: 38px; 
+    height: 38px; 
+    border-radius: 12px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    flex-shrink: 0; 
+    font-size: 18px; 
+}
+
+.avatar.ai { 
+    background: var(--ai-gradient); 
+    color: white; 
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); 
+    order: 1; /* المساعد على اليسار */
+}
+
+.avatar.user { 
+    background: #f1f3f5; 
+    color: #495057; 
+    order: 2; /* المستخدم على اليمين */
+}
+
+.message-bubble { 
+    padding: 14px 20px; 
+    border-radius: 22px; 
+    font-size: 0.95rem; 
+    line-height: 1.6; 
+    max-width: 85%; 
+    position: relative; 
+    transition: all 0.3s ease;
+}
+
+/* رسالة الذكاء الاصطناعي (على اليسار) */
+.message-row.ai .message-bubble { 
+    background: #ffffff; 
+    color: #2d3436; 
+    border-bottom-right-radius: 5px;
+    border-bottom-left-radius: 22px; /* تعديل الزاوية */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.02);
+    margin-left: 0; /* محاذاة لليسار */
+    margin-right: auto; /* منع الامتداد لليمين */
+}
+
+/* رسالة المستخدم (على اليمين) */
+.message-row.user .message-bubble { 
+    background: var(--user-gradient); 
+    color: white; 
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 22px; /* تعديل الزاوية */
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.25);
+    margin-right: 0; /* محاذاة لليمين */
+    margin-left: auto; /* منع الامتداد لليسار */
+}
+
+.gpt-input-area { 
+    padding: 14px; 
+    background: white; 
+    border-top: 1px solid #ececf1; 
+}
+
+.gpt-input-wrapper { 
+    position: relative; 
+    display: flex; 
+    align-items: center; 
+    background: #f1f3f5;
+    border: 1px solid transparent;
+    border-radius: 30px; 
+    padding: 6px 15px; /* ← إزالة الـ padding الإضافي من اليسار */
+    transition: 0.3s; 
+}
+
+/* إضافة margin للزر الذكي عند ظهور السماعة */
+.gpt-input-wrapper .gpt-voice-controls {
+    display: none; /* مخفي افتراضيًا */
+}
+
+.gpt-input-wrapper .voice-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    background: linear-gradient(135deg, #2196f3, #21cbf3);
+    color: white;
+}
+
+.gpt-input-wrapper .voice-btn.muted {
+    background: linear-gradient(135deg, #757575, #9e9e9e);
+}
+
+/* تحسين المساحة على الموبايل */
+@media (max-width: 600px) {
+    .gpt-input-wrapper {
+        padding: 6px 12px;
+    }
+    
+    .gpt-input-wrapper .voice-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+}
+
+.gpt-input-wrapper:focus-within { 
+    border-color: #10a37f; 
+    box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1); 
+}
+
+.gpt-input { 
+    flex: 1; 
+    border: none; 
+    padding: 12px; 
+    max-height: 120px; 
+    resize: none; 
+    outline: none; 
+    font-family: inherit; 
+    font-size: 0.95rem; 
+    color: #2c3e50; 
+    direction: rtl;
+}
+
+/* 🆕 زر الإجراء الذكي (مايك/إرسال) */
+.gpt-action-btn { 
+    background: #10a37f; 
+    border: none; 
+    color: white; 
+    cursor: pointer; 
+    padding: 10px; 
+    border-radius: 10px; 
+    transition: all 0.2s; 
+    width: 40px; 
+    height: 40px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    flex-shrink: 0;
+}
+
+.gpt-action-btn.mic-mode {
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+}
+
+.gpt-action-btn.send-mode {
+    background: linear-gradient(135deg, #10a37f, #0d8a6a);
+}
+
+.gpt-action-btn:hover:not(:disabled) { 
+    transform: scale(1.05); 
+}
+
+.gpt-action-btn:disabled { 
+    background: #e5e5e5; 
+    cursor: not-allowed; 
+}
+
+.typing-indicator { 
+    display: flex; 
+    gap: 4px; 
+    padding: 8px; 
+}
+
+.dot { 
+    width: 8px; 
+    height: 8px; 
+    background: #10a37f; 
+    border-radius: 50%; 
+    animation: bounce 1.4s infinite ease-in-out; 
+}
+
+.dot:nth-child(1) { 
+    animation-delay: -0.32s; 
+}
+
+.dot:nth-child(2) { 
+    animation-delay: -0.16s; 
+}
+
+.info-card { 
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%); 
+    border-left: 4px solid #4caf50; 
+    padding: 16px; 
+    border-radius: 12px; 
+    margin: 12px 0; 
+}
+
+.info-card-header { 
+    font-weight: 700; 
+    color: #2e7d32; 
+    margin-bottom: 10px; 
+    font-size: 1.05rem; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+
+.info-card-content { 
+    color: #1b5e20; 
+    line-height: 1.8; 
+}
+
+.info-row { 
+    display: flex; 
+    padding: 8px 0; 
+    border-bottom: 1px solid rgba(76, 175, 80, 0.1); 
+}
+
+.info-row:last-child { 
+    border-bottom: none; 
+}
+
+.info-label { 
+    font-weight: 600; 
+    min-width: 120px; 
+    color: #2e7d32; 
+}
+
+.info-value { 
+    flex: 1; 
+    color: #1b5e20; 
+}
+
+.license-card { 
+    background: #fff3e0; 
+    border-left: 4px solid #ff9800; 
+    padding: 14px; 
+    border-radius: 10px; 
+    margin: 10px 0; 
+}
+
+.license-title { 
+    font-weight: 700; 
+    color: #e65100; 
+    margin-bottom: 8px; 
+}
+
+.license-list { 
+    color: #bf360c; 
+    line-height: 1.8; 
+}
+
+.tech-notes { 
+    background: #e3f2fd; 
+    border-left: 4px solid #2196f3; 
+    padding: 14px; 
+    border-radius: 10px; 
+    margin: 10px 0; 
+}
+
+.tech-notes-title { 
+    font-weight: 700; 
+    color: #1565c0; 
+    margin-bottom: 8px; 
+    font-size: 1rem; 
+}
+
+.tech-notes-content { 
+    color: #0d47a1; 
+    line-height: 1.8; 
+    white-space: pre-line; 
+}
+
+.decision-badge { 
+    background: linear-gradient(135deg, #ffd700, #ffed4e); 
+    color: #664d00; 
+    padding: 6px 14px; 
+    border-radius: 20px; 
+    font-weight: 700; 
+    display: inline-block; 
+    margin: 8px 0; 
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3); 
+}
+
+.stats-grid { 
+    display: grid; 
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 12px; 
+    margin: 12px 0; 
+}
+
+.stat-box { 
+    background: white; 
+    padding: 14px; 
+    border-radius: 10px; 
+    text-align: center; 
+    border: 2px solid #e0e0e0; 
+}
+
+.stat-number { 
+    font-size: 1.8rem; 
+    font-weight: 700; 
+    color: #10a37f; 
+}
+
+.stat-label { 
+    font-size: 0.85rem; 
+    color: #666; 
+    margin-top: 4px; 
+}
+
+.link-btn { 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 8px; 
+    margin-top: 10px; 
+    padding: 10px 18px; 
+    background: linear-gradient(135deg, #2196f3, #1976d2); 
+    color: white !important; 
+    text-decoration: none; 
+    border-radius: 10px; 
+    font-size: 0.9rem; 
+    font-weight: 600; 
+    transition: 0.3s; 
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3); 
+}
+
+.link-btn:hover { 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4); 
+}
+
+.link-btn i { 
+    font-size: 1rem; 
+}
+
+.map-btn { 
+    background: linear-gradient(135deg, #f44336, #d32f2f); 
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3); 
+}
+
+.map-btn:hover { 
+    box-shadow: 0 6px 16px rgba(244, 67, 54, 0.4); 
+}
+
+.choice-btn { 
+    display: flex; 
+    align-items: center; 
+    width: 100%; 
+    margin: 8px 0; 
+    padding: 12px 18px; 
+    background: white; 
+    border: 1px solid rgba(79, 172, 254, 0.1); 
+    border-radius: 15px; 
+    text-align: right; 
+    cursor: pointer; 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    font-size: 0.9rem; 
+    font-weight: 600; 
+    color: #34495e;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+}
+
+.choice-btn:hover { 
+    background: var(--ai-gradient); 
+    color: white;
+    transform: translateX(-8px); 
+    box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3);
+}
+
+.choice-icon { 
+    margin-left: 10px; 
+    font-size: 1.2rem; 
+}
+
+.area-list { 
+    background: #fafafa; 
+    padding: 14px; 
+    border-radius: 10px; 
+    margin: 10px 0; 
+    max-height: 300px; 
+    overflow-y: auto; 
+}
+
+.area-item { 
+    padding: 10px; 
+    margin: 6px 0; 
+    background: white; 
+    border-radius: 8px; 
+    border-right: 3px solid #10a37f; 
+    cursor: pointer; 
+    transition: 0.2s; 
+}
+
+.area-item:hover { 
+    background: #e8f5e9; 
+    transform: translateX(-4px); 
+}
+
+@keyframes pulse { 
+    0%, 100% { opacity: 1; } 
+    50% { opacity: 0.5; } 
+}
+
+@keyframes bounce { 
+    0%, 80%, 100% { transform: scale(0); } 
+    40% { transform: scale(1); } 
+}
+
+@keyframes slideUp { 
+    from { opacity: 0; transform: translateY(20px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+@keyframes messageSlide { 
+    from { opacity: 0; transform: translateX(20px); } 
+    to { opacity: 1; transform: translateX(0); } 
+}
+
+.gpt-messages::-webkit-scrollbar { 
+    width: 6px; 
+}
+
+.gpt-messages::-webkit-scrollbar-track { 
+    background: #f1f1f1; 
+}
+
+.gpt-messages::-webkit-scrollbar-thumb { 
+    background: #10a37f; 
+    border-radius: 10px; 
+}
+
+.gpt-messages::-webkit-scrollbar-thumb:hover { 
+    background: #0d8a6a; 
+}
+
+.choice-btn {
+    transition: all 0.3s ease;
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    0% { opacity: 0; transform: scale(0.9); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+/* التنسيقات الجديدة */
+.context-indicator { 
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%); 
+    padding: 12px; 
+    border-radius: 10px; 
+    margin: 10px 0; 
+    border-left: 4px solid #4caf50; 
+    font-size: 0.9rem; 
+    color: #2e7d32; 
+    text-align: center; 
+    animation: fadeIn 0.5s ease-out; 
+}
+
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(-10px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+/* ==================== 🎤 تنسيقات الصوت والمايك ==================== */
+.gpt-voice-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    justify-content: center;
+    padding: 6px;
+}
+
+.voice-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.voice-btn.speaker {
+    background: linear-gradient(135deg, #2196f3, #21cbf3);
+    color: white;
+}
+
+.voice-btn.speaker.muted {
+    background: linear-gradient(135deg, #757575, #9e9e9e);
+}
+
+.voice-wave {
+    display: none;
+    justify-content: center;
+    gap: 3px;
+    margin: 8px 0;
+    height: 20px;
+}
+
+.wave-bar {
+    width: 3px;
+    height: 8px;
+    background: #ff416c;
+    border-radius: 2px;
+    animation: wave 1s ease infinite;
+}
+
+@keyframes wave {
+    0%, 100% { height: 8px; }
+    50% { height: 20px; }
+}
+
+.voice-text {
+    display: none;
+    padding: 8px;
+    background: #e3f2fd;
+    border-radius: 8px;
+    margin: 8px 0;
+    font-size: 14px;
+    color: #1565c0;
+    text-align: center;
+}
+
+/* 🆕 أزرار البحث الذكية */
+.smart-search-container {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 16px;
+    padding: 16px;
+    margin: 16px 0;
+    border: 2px solid #0ea5e9;
+    box-shadow: 0 4px 16px rgba(14, 165, 233, 0.15);
+    animation: slideIn 0.4s ease-out;
+}
+
+.smart-search-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    color: #0369a1;
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.smart-search-header i {
+    font-size: 1.2rem;
+    animation: pulse 2s infinite;
+}
+
+.smart-search-text {
+    background: white;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    color: #0c4a6e;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    border-right: 3px solid #0ea5e9;
+}
+
+.smart-search-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.smart-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 600;
+    font-size: 0.95rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.smart-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
+}
+
+.smart-btn:hover::before {
+    left: 100%;
+}
+
+.smart-btn-comprehensive {
+    background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+}
+
+.smart-btn-comprehensive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 163, 127, 0.4);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.smart-btn-sector-a {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.smart-btn-sector-a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.smart-btn-sector-b {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.smart-btn-sector-b:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.smart-btn-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.smart-btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.smart-btn-text {
+    flex: 1;
+}
+
+.smart-btn-arrow {
+    font-size: 1.2rem;
+    transition: transform 0.3s;
+}
+
+.smart-btn:hover .smart-btn-arrow {
+    transform: translateX(-4px);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 🆕 حالة التوسيع للكمبيوتر - ملء الشاشة */
+@media (min-width: 601px) {
+    .gpt-chat-container.expanded {
+        width: calc(100vw - 40px) !important;
+        height: calc(100vh - 40px) !important;
+        bottom: 20px !important;
+        right: 20px !important;
+        left: 20px !important;
+        border-radius: 20px;
+        max-width: none !important;
+        max-height: none !important;
+    }
+}
+
+/* إخفاء زر التوسيع في الموبايل */
+@media (max-width: 600px) {
+    .gpt-expand-btn {
+        display: none !important;
+    }
+}
+
+/* تحسين انتقال الأبعاد */
+.gpt-chat-container {
+    transition: width 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), 
+                height 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), 
+                bottom 0.4s, right 0.4s, left 0.4s,
+                transform 0.3s;
+}
+
+/* 🎤 تنسيقات الزر الصوتي المخفي داخل حاوية الإدخال */
+.gpt-input-wrapper .gpt-voice-controls {
+    position: absolute;
+    left: 12px; /* ← وضع في الجانب الأيسر */
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    margin: 0;
+    padding: 0;
+    display: none;
+}
+
+.gpt-input-wrapper .voice-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    background: linear-gradient(135deg, #2196f3, #21cbf3);
+    color: white;
+}
+
+.gpt-input-wrapper .voice-btn.muted {
+    background: linear-gradient(135deg, #757575, #9e9e9e);
+}
+
+/* تحسين المساحة على الموبايل */
+@media (max-width: 600px) {
+    /* تم إلغاء الوضع المطلق للسماعة لضمان عدم تداخلها مع النص */
+    .gpt-input-wrapper .gpt-voice-controls {
+        left: auto; 
+        position: relative; /* تغيير من absolute إلى relative لمنع حجز مساحة وهي مخفية */
+        transform: none;
+        order: 1; /* لضمان ظهورها أقصى اليسار في الموبيل */
+    }
+    
+    .gpt-input-wrapper .voice-btn {
+        width: 30px; /* حجم متناسق للموبيل */
+        height: 30px;
+        font-size: 13px;
+    }
+    
+    .gpt-input-wrapper {
+        /* تم إرجاع الـ padding للوضع الطبيعي (12px) من جميع الجهات */
+        padding: 6px 12px; 
+        gap: 5px; /* إضافة مسافة بسيطة بين العناصر تظهر فقط عند التفعيل */
+    }
+    
+    .gpt-input {
+        order: 2; /* النص في المنتصف */
+    }
+    
+    .gpt-action-btn {
+        order: 3; /* زر المايك/الإرسال أقصى اليمين */
+    }
+}
+
+/* تأثيرات بصرية للاستماع */
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 4px 25px rgba(0, 210, 255, 0.6), 0 0 30px rgba(58, 123, 213, 0.4);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+}
+
+/* تأثير الزر عند الاستماع */
+.gpt-action-btn.listening {
+    background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%) !important;
+    box-shadow: 0 0 20px rgba(0, 210, 255, 0.6), 0 0 40px rgba(58, 123, 213, 0.4) !important;
+}
+
+/* تحسين مظهر الموجة الصوتية */
+.voice-wave {
+    animation: fadeIn 0.3s ease-in;
+}
+
+.wave-bar {
+    animation: wave 1.2s ease-in-out infinite;
+    background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+}
+
+.wave-bar:nth-child(1) { animation-delay: 0s; }
+.wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.wave-bar:nth-child(4) { animation-delay: 0.3s; }
+
+@keyframes wave {
+    0%, 100% { height: 10px; }
+    50% { height: 25px; }
+
+}
+/* الحل الجراحي: استهداف وضع الدوران بناءً على قصر الشاشة */
+@media (max-height: 550px) {
+    .gpt-chat-container {
+        /* إجبار النافذة على الالتصاق التام لمنع الهروب */
+        bottom: 0 !important;
+        top: 0 !important;
+        height: 100dvh !important; 
+        min-height: 0 !important; /* إلغاء الـ 500 بكسل الإجبارية */
+        width: 100% !important;
+        left: 0 !important;
+        right: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    /* تقليل ارتفاع الهيدر لأنه يستهلك مساحة الشاشة القصيرة */
+    .gpt-header {
+        min-height: 40px !important;
+        padding: 5px 15px !important;
+    }
+
+    /* ضمان رؤية منطقة الإدخال */
+    .gpt-input-area {
+        padding: 5px !important;
+    }
+}
+
+
+
