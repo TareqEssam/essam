@@ -36,9 +36,19 @@ window.AgentMemory = {
                 previousContext: this.previousContext,
                 lastQuery: this.lastQuery,
                 pendingClarification: this.pendingClarification,
-                conversationContext: this.conversationContext
+                conversationContext: this.conversationContext,
+                // ✨ إضافة وسم زمني لضمان علمي لحداثة البيانات ومنع التشتت بسياقات قديمة جداً
+                lastUpdate: Date.now() 
             };
+            
             localStorage.setItem(this.storageKey, JSON.stringify(data));
+
+            // 🧠 إخطار المحرك الدلالي بتحديث السياق (الوعي المتبادل)
+            // هذا يسمح للمحرك الدلالي بمعرفة "عن ماذا نتحدث الآن" لتحسين نتائج البحث
+            if (window.hybridEngine && typeof window.hybridEngine.updateContextToken === 'function') {
+                window.hybridEngine.updateContextToken(this.getContext());
+            }
+            
         } catch (error) {
             console.error('⚠️ فشل حفظ الذاكرة:', error);
         }
