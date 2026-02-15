@@ -682,7 +682,13 @@ async function handleIndustrialQuery(query, questionType, analysisContext, entit
     const searchResult = await smartSearch(query, 'areas');
     
     if (searchResult && searchResult.data) {
-        console.log(`✅ وجدت منطقة من ${searchResult.source}: ${searchResult.data.name}`);
+        // 🔧 استخراج آمن لاسم المنطقة
+        const areaName = searchResult.data.name || 
+                        searchResult.data['اسم_المنطقة'] || 
+                        searchResult.data.الاسم || 
+                        'منطقة غير محددة';
+        
+        console.log(`✅ وجدت منطقة من ${searchResult.source}: ${areaName}`);
         
         // حفظ في الذاكرة
         await window.AgentMemory.setIndustrial(searchResult.data, query);
@@ -813,13 +819,20 @@ async function handleActivityQuery(query, questionType, analysisContext, entitie
 
 // ==================== 🎨 تنسيق الردود ====================
 function formatIndustrialResponse(area, questionType) {
-    let html = `<div class="info-card industrial">
-        <div class="info-card-header">🏭 ${area.name}</div>`;
+    // 🔧 استخراج آمن للبيانات
+    const areaName = area.name || area['اسم_المنطقة'] || area.الاسم || 'منطقة غير محددة';
+    const governorate = area.governorate || area.المحافظة || area['محافظة'] || null;
+    const dependency = area.dependency || area.التبعية || area['جهة_الولاية'] || null;
+    const areaSize = area.area || area.المساحة || area['مساحة'] || null;
+    const decision = area.decision || area.القرار || area['قرار_الإنشاء'] || null;
     
-    if (area.governorate) html += `<div class="info-row"><strong>المحافظة:</strong> ${area.governorate}</div>`;
-    if (area.dependency) html += `<div class="info-row"><strong>جهة الولاية:</strong> ${area.dependency}</div>`;
-    if (area.area) html += `<div class="info-row"><strong>المساحة:</strong> ${area.area}</div>`;
-    if (area.decision) html += `<div class="info-row"><strong>قرار الإنشاء:</strong> ${area.decision}</div>`;
+    let html = `<div class="info-card industrial">
+        <div class="info-card-header">🏭 ${areaName}</div>`;
+    
+    if (governorate) html += `<div class="info-row"><strong>المحافظة:</strong> ${governorate}</div>`;
+    if (dependency) html += `<div class="info-row"><strong>جهة الولاية:</strong> ${dependency}</div>`;
+    if (areaSize) html += `<div class="info-row"><strong>المساحة:</strong> ${areaSize}</div>`;
+    if (decision) html += `<div class="info-row"><strong>قرار الإنشاء:</strong> ${decision}</div>`;
     
     html += `</div>`;
     return html;
@@ -965,7 +978,22 @@ function formatDecision104MultipleResults(results, query) {
         </div>
         <div class="clarification-subtitle" style="color: #2e7d32;">اختر النشاط المناسب لمشروعك:</div>`;
     
-    results.forEach((result, index) => {
+    // 🔧 إزالة التكرارات بناءً على اسم النشاط
+    const uniqueResults = [];
+    const seenActivities = new Set();
+    
+    results.forEach((result) => {
+        const data = result.data.original_data;
+        const activityName = data['النشاط_المحدد'] || data['النشاط المحدد'] || '';
+        const key = `${activityName}_${data['القطاع_العام'] || ''}_${data['نوع_الحافز'] || ''}`;
+        
+        if (!seenActivities.has(key)) {
+            seenActivities.add(key);
+            uniqueResults.push(result);
+        }
+    });
+    
+    uniqueResults.slice(0, 5).forEach((result, index) => {
         const data = result.data.original_data;
         const activityName = data['النشاط_المحدد'] || data['النشاط المحدد'] || 'نشاط غير محدد';
         const sectorGeneral = data['القطاع_العام'] || '';
@@ -1346,16 +1374,77 @@ window.typeWriterResponse = function(htmlContent, shouldAutoSpeak = true) {
     const chatMessagesContainer = document.getElementById('gptMessages');
     if (!chatMessagesContainer) return;
     stopOngoingGeneration();
+    chatMessagesContainer.style.scrollBehavior = 'auto';
     
     const msgRow = document.createElement('div');
     msgRow.className = 'message-row ai';
     msgRow.innerHTML = `<div class="avatar ai"><i class="fas fa-robot"></i></div><div class="message-bubble"></div>`;
     chatMessagesContainer.appendChild(msgRow);
     const bubble = msgRow.querySelector('.message-bubble');
-    
-    // عرض فوري للمحتوى
-    bubble.innerHTML = htmlContent;
-    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    const taskQueue = [];
+
+    function traverseAndQueue(node, parentElement) {
+        if (node.nodeType === 3) {
+            const text = node.nodeValue;
+            if (!text) return;
+            const secureTextNode = document.createTextNode('');
+            taskQueue.push({ type: 'inject-node', node: secureTextNode, parent: parentElement });
+            const chars = text.split('');
+            chars.forEach(char => taskQueue.push({ type: 'append-char', node: secureTextNode, char }));
+        } else if (node.nodeType === 1) {
+            const clonedElement = document.createElement(node.tagName);
+            Array.from(node.attributes).forEach(attr => clonedElement.setAttribute(attr.name, attr.value));
+            taskQueue.push({ type: 'inject-node', node: clonedElement, parent: parentElement });
+            Array.from(node.childNodes).forEach(child => traverseAndQueue(child, clonedElement));
+        }
+    }
+
+    Array.from(tempDiv.childNodes).forEach(child => traverseAndQueue(child, bubble));
+
+    const currentSession = { isCancelled: false, animationId: null };
+    window.activeTypingSession = currentSession;
+    let taskIndex = 0;
+    const charsPerFrame = 3;
+    let fullTextForSpeech = '';
+
+    const renderFrame = () => {
+        if (currentSession.isCancelled) return;
+        const endIndex = Math.min(taskIndex + charsPerFrame, taskQueue.length);
+        for (let i = taskIndex; i < endIndex; i++) {
+            const task = taskQueue[i];
+            if (task.type === 'inject-node') {
+                task.parent.appendChild(task.node);
+            } else if (task.type === 'append-char') {
+                task.node.nodeValue += task.char;
+                fullTextForSpeech += task.char;
+            }
+        }
+        taskIndex = endIndex;
+        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+        if (taskIndex < taskQueue.length) {
+            currentSession.animationId = requestAnimationFrame(renderFrame);
+        } else {
+            if (shouldAutoSpeak && window.GPT_VOICE && window.GPT_VOICE.speechEnabled) {
+                setTimeout(() => {
+                    if (!currentSession.isCancelled) {
+                        const voiceControls = document.getElementById('gptVoiceControls');
+                        if (voiceControls) voiceControls.style.display = 'flex';
+                        window.speakText(fullTextForSpeech);
+                        if (window.speechSynthesis) {
+                            window.speechSynthesis.addEventListener('end', function hideSpeaker() {
+                                if (voiceControls) voiceControls.style.display = 'none';
+                                window.speechSynthesis.removeEventListener('end', hideSpeaker);
+                            });
+                        }
+                    }
+                }, 200);
+            }
+            window.activeTypingSession = null;
+        }
+    };
+    currentSession.animationId = requestAnimationFrame(renderFrame);
 };
 
 window.toggleExpandChat = function() {
@@ -1472,4 +1561,4 @@ console.log('🚀 Features: Semantic Search • Smart Memory • Instant Loading
 console.log('🧠 Hybrid Engine: E5 Embeddings + Neural Search + Keyword Matching');
 console.log('💾 Memory: Persistent Context with localStorage');
 
-} 
+} // نهاية الشرط الواقي من التحميل المزدوج
