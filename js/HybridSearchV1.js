@@ -21,6 +21,7 @@ class HybridSearchEngine {
         };
         this.intentSignatures = {};
         this.isReady = false;
+            this.activeContextName = null; // لتخزين اسم النشاط أو المنطقة الحالية دلالياً
         
         this.intentThreshold = 0.28;
         this.multiIntentThreshold = 0.24;
@@ -101,20 +102,33 @@ class HybridSearchEngine {
             throw error;
         }
     }
+     
+
+     // ✨ اضف الدالة الجديدة هنا بمشرط الجراح ✨
+    updateContextToken(context) {
+        if (!context || !context.data) {
+            this.activeContextName = null;
+            return;
+        }
+        // استخراج الاسم سواء كان نشاطاً (text) أو منطقة (name)
+        const contextName = context.data.text || context.data.name || "";
+        this.activeContextName = contextName;
+        console.log("🧠 تم تحديث الوعي الدلالي بالسياق الحالي:", contextName);
+    }
 
     normalizeData(items) {
-        if (!Array.isArray(items)) return [];
-        
-        return items.map(item => ({
-            id: item.id,
-            vector: this.decodeVector(item.vector),
-            text: item.content["الاسم"] || 
-                  item.content["النشاط_المحدد"] || 
-                  item.content["اسم_المنطقة"] || 
-                  "بيانات صناعية", 
-            original_data: item.content 
-        })).filter(i => i.vector !== null);
-    }
+    if (!Array.isArray(items)) return [];
+    
+    return items.map(item => ({
+        id: item.id,
+        vector: this.decodeVector(item.vector),
+        text: item.content["الاسم"] || 
+              item.content["النشاط_المحدد"] || 
+              item.content["اسم_المنطقة"] || 
+              "بيانات صناعية", 
+        original_data: item.content 
+    })).filter(i => i.vector !== null);
+}
 
     /**
      * 🔧 تطبيع النص قبل التحويل لـ vector
@@ -155,15 +169,19 @@ class HybridSearchEngine {
     }
 
     async prepareQuery(query) {
-        const context = window.AgentMemory ? window.AgentMemory.getContext() : null;
+        // نستخدم السياق المخزن محلياً في المحرك أو نجلب من الذاكرة كاحتياط
+        const contextName = this.activeContextName || 
+                           (window.AgentMemory?.getContext()?.data?.text || window.AgentMemory?.getContext()?.data?.name);
+        
         let enhancedQuery = query;
 
-        const isFollowUp = /^(ما|هي|هو|كم|اين|فين|شروط|حوافز|تراخيص|قرار|ده|دي)/i.test(query.trim());
+        // التحقق من الكلمات الدلالية التي تشير إلى أن المستخدم يكمل حديثه
+        const isFollowUp = /^(ما|هي|هو|كم|اين|فين|شروط|حوافز|تراخيص|قرار|ده|دي|موقع|تبعيه|ولايه)/i.test(query.trim());
         
-        if (isFollowUp && context && context.data) {
-            const contextName = context.data.text || context.data.name || "";
+        if (isFollowUp && contextName) {
+            // دمج السياق دلالياً لتحسين فهم vector السؤال
             enhancedQuery = `query: ${query} context: ${contextName}`; 
-            console.log("🧠 Semantic Context Linking:", enhancedQuery);
+            console.log("🧠 تم تعزيز الاستعلام دلالياً بالسياق:", contextName);
         }
         return enhancedQuery;
     }
@@ -373,3 +391,5 @@ class HybridSearchEngine {
 }
 
 export const hybridEngine = new HybridSearchEngine();
+// ربط المحرك بالنافذة العالمية ليتمكن gpt_agent.js من رؤيته
+window.hybridEngine = hybridEngine;
