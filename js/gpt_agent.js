@@ -740,4 +740,5 @@ console.log('📋 gpt_activities.js → Activity Processing');
 console.log('🏭 gpt_areas.js → Industrial Zones Processing');
 console.log('📊 gpt_decision104.js → Decision 104 Processing');
 
-} النهايه
+} 
+
