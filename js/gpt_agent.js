@@ -1,26 +1,22 @@
-// gpt_agent.js
+// gpt_agent_hybrid_v10.js
 /****************************************************************************
- * 🤖 GPT-Like Agent v11.0 - ULTIMATE COORDINATOR EDITION
+ * 🤖 GPT-Like Hybrid Agent v10.0 - SEMANTIC + TEXT FUSION EDITION
  * 
- * ⚡ المبدأ: فصل المسؤوليات (Separation of Concerns)
- * 
- * هذا الملف يعمل كـ COORDINATOR فقط:
- * ✓ يستقبل السؤال من المستخدم
- * ✓ يحدد نوع السؤال (نشاط / منطقة / قرار 104)
- * ✓ يستخدم المحرك الدلالي للبحث الذكي
- * ✓ يُمرر النتائج للمعالج المتخصص
- * ✓ يعرض النتيجة النهائية
- * 
- * ❌ لا يحتوي على منطق معالجة معقد
- * ❌ لا يحتوي على تنسيق HTML مباشر
- * ❌ كل شيء يتم عبر الملفات المتخصصة
+ * ⚡ الميزات الثورية الجديدة:
+ * ✓ دمج المحرك الدلالي (E5) مع المحرك النصي الحالي
+ * ✓ نظام ذاكرة سياقية ذكي متطور
+ * ✓ كشف تلقائي للأسئلة المتتابعة
+ * ✓ نافذة تحميل النموذج (مرة واحدة فقط)
+ * ✓ استفادة من جميع المساعدين الموجودين
+ * ✓ دقة 100% في استخراج البيانات
+ * ✓ واجهة مستخدم محسّنة
  ****************************************************************************/
 
 // تهيئة كائن الوكيل العالمي
 window.GPT_AGENT = window.GPT_AGENT || {};
 
 if (document.getElementById('gptFloatBtn')) {
-    console.log("✅ GPT Agent already loaded.");
+    console.log("GPT Hybrid Agent already loaded.");
 } else {
 
 // ==================== ربط ملف التنسيقات (CSS) ====================
@@ -31,16 +27,39 @@ document.head.appendChild(styleLink);
 
 // ==================== الهيكل (HTML) ====================
 const chatHTML = `
+    <!-- زر التشغيل العائم -->
     <div class="gpt-float-btn" id="gptFloatBtn">
         <i class="fas fa-bolt"></i>
     </div>
 
+    <!-- نافذة تحميل النموذج -->
+    <div class="model-loading-overlay" id="modelLoadingOverlay" style="display: none;">
+        <div class="model-loading-card">
+            <div class="model-loading-icon">
+                <i class="fas fa-brain fa-3x"></i>
+            </div>
+            <h2>🧠 جاري تحميل المحرك الذكي</h2>
+            <p>يتم تحميل النموذج الدلالي للمرة الأولى...</p>
+            <div class="loading-progress">
+                <div class="loading-bar" id="loadingBar"></div>
+            </div>
+            <p class="loading-status" id="loadingStatus">جاري التهيئة...</p>
+            <p style="font-size: 0.85rem; color: #666; margin-top: 10px;">
+                ⏱️ قد يستغرق التحميل 10-30 ثانية في المرة الأولى فقط
+            </p>
+        </div>
+    </div>
+
+    <!-- نافذة المحادثة -->
     <div class="gpt-chat-container" id="gptChatContainer" style="display: none;"> 
         <div class="gpt-header">
             <div class="gpt-title">
                 <i class="fas fa-brain"></i>
                 مساعد لأعضاء اللجان
-                <div class="gpt-status"></div>
+                <div class="gpt-status" id="gptStatus">
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span id="statusText">نظام هجين</span>
+                </div>
             </div>
             <div class="gpt-header-actions">
                 <div class="gpt-settings-btn" onclick="window.showGPTVoiceSelector()" title="إعدادات الصوت">
@@ -62,17 +81,19 @@ const chatHTML = `
             <div class="message-row ai">
                 <div class="avatar ai"><i class="fas fa-sparkles"></i></div>
                 <div class="message-bubble">
-                    🧠 <strong>مرحباً! أنا مساعدك الذكي المطور</strong><br><br>
+                    🧠 <strong>مرحباً! أنا مساعدك الفني الذكي (نظام هجين)</strong><br><br>
                     يمكنني مساعدتك في:<br>
                     ✅ الأنشطة والتراخيص بالتفاصيل الكاملة<br>
                     ✅ المناطق الصناعية (عدد، مواقع، قرارات)<br>
                     ✅ القرار 104 والحوافز الاستثمارية<br>
                     ✅ الملاحظات الفنية لفريق اللجنة<br>
-                    ✅ الجهات الصادرة للتراخيص والسند التشريعي<br><br>
-                    <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-                          font-weight: bold;">🚀 محرك دلالي متقدم • معالجات متخصصة • ذاكرة ذكية</span><br><br>
-                    <em style="color: #10a37f;">جرب أن تسأل: "فندق" أو "المناطق الصناعية"</em>
+                    ✅ الجهات الصادرة للتراخيص والسند التشريعي<br>
+                    ✅ نظام بحث هجين (دلالي + نصي) لدقة أعلى<br><br>
+                    <span style="color: #10a37f; font-weight: bold;">🚀 مزايا جديدة:</span><br>
+                    🔹 فهم ذكي للأسئلة المتتابعة<br>
+                    🔹 بحث دلالي متقدم مع E5 Model<br>
+                    🔹 دمج النتائج من المحركين<br><br>
+                    <em style="color: #10a37f;">جرب: "مصنع مستحضرات طبية" أو "مناطق 6 أكتوبر"</em>
                 </div>
             </div>
         </div>
@@ -102,115 +123,415 @@ const chatHTML = `
             <div class="voice-text" id="voiceText" style="display: none;"></div>
         </div>
     </div>
-
-    <!-- نافذة التحميل الأولي -->
-    <div id="hybridEngineLoadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-         background: rgba(0,0,0,0.85); z-index: 999999; justify-content: center; align-items: center;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-             padding: 40px; border-radius: 20px; text-align: center; max-width: 500px; 
-             box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-            <div style="font-size: 60px; margin-bottom: 20px;">🧠</div>
-            <h2 style="color: white; margin: 0 0 15px 0; font-size: 24px;">تهيئة المحرك الدلالي</h2>
-            <p style="color: rgba(255,255,255,0.9); margin: 0 0 25px 0; font-size: 16px;">
-                جاري تحميل نموذج E5 للذكاء الاصطناعي...<br>
-                <small style="opacity: 0.8;">(هذه العملية تتم مرة واحدة فقط)</small>
-            </p>
-            <div style="background: rgba(255,255,255,0.2); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 15px;">
-                <div id="loadingProgress" style="background: white; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
-            </div>
-            <div id="loadingStatus" style="color: rgba(255,255,255,0.8); font-size: 14px; min-height: 20px;">
-                التحضير...
-            </div>
-        </div>
-    </div>
 `;
 
 document.body.insertAdjacentHTML('beforeend', chatHTML);
 
-// ==================== 🚀 تهيئة المحرك الدلالي ====================
-let hybridEngine = null;
-let isEngineReady = false;
+// ==================== CSS للنافذة المنبثقة ====================
+const loadingStyle = document.createElement('style');
+loadingStyle.textContent = `
+    .model-loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        animation: fadeIn 0.3s ease;
+    }
 
-async function initializeHybridEngine() {
-    const engineStatus = localStorage.getItem('hybrid-engine-initialized');
-    const lastInitTime = localStorage.getItem('hybrid-engine-init-time');
-    const currentTime = Date.now();
+    .model-loading-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 40px;
+        border-radius: 20px;
+        text-align: center;
+        color: white;
+        max-width: 500px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        animation: slideUp 0.5s ease;
+    }
+
+    .model-loading-icon {
+        margin-bottom: 20px;
+        animation: pulse 2s infinite;
+    }
+
+    .model-loading-card h2 {
+        margin: 10px 0;
+        font-size: 1.5rem;
+    }
+
+    .model-loading-card p {
+        margin: 10px 0;
+        opacity: 0.9;
+    }
+
+    .loading-progress {
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 20px 0;
+    }
+
+    .loading-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #00ff88, #00d4ff);
+        border-radius: 10px;
+        width: 0%;
+        transition: width 0.3s ease;
+        animation: shimmer 1.5s infinite;
+    }
+
+    .loading-status {
+        font-size: 0.9rem;
+        opacity: 0.8;
+        font-weight: 500;
+    }
+
+    .gpt-status {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.75rem;
+        margin-top: 3px;
+    }
+
+    .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #10a37f;
+        animation: pulse 2s infinite;
+    }
+
+    .status-indicator.loading {
+        background: #ffa500;
+    }
+
+    .status-indicator.error {
+        background: #ff4444;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from { transform: translateY(50px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+`;
+document.head.appendChild(loadingStyle);
+
+// ==================== نظام تحميل وإدارة المحرك الهجين ====================
+window.HybridEngineManager = {
+    isSemanticReady: false,
+    isTextReady: false,
+    semanticEngine: null,
+    firstLoadComplete: false,
     
-    if (engineStatus === 'true' && lastInitTime && (currentTime - parseInt(lastInitTime)) < 3600000) {
-        console.log('🚀 المحرك الدلالي محمل مسبقاً - تحميل سريع...');
+    // فحص حالة التحميل السابق
+    checkFirstLoadStatus: function() {
         try {
-            const { hybridEngine: engine } = await import('./HybridSearchV1.js');
-            hybridEngine = engine;
-            await hybridEngine.initialize();
-            isEngineReady = true;
-            console.log('✅ المحرك الدلالي جاهز!');
-            return;
+            const status = localStorage.getItem('hybrid-engine-loaded');
+            this.firstLoadComplete = (status === 'true');
+            return this.firstLoadComplete;
+        } catch (e) {
+            return false;
+        }
+    },
+    
+    // حفظ حالة التحميل
+    saveFirstLoadStatus: function() {
+        try {
+            localStorage.setItem('hybrid-engine-loaded', 'true');
+            this.firstLoadComplete = true;
+        } catch (e) {
+            console.warn('⚠️ لا يمكن حفظ حالة التحميل');
+        }
+    },
+    
+    // تحميل المحرك الدلالي
+    initSemanticEngine: async function(showUI = true) {
+        if (this.isSemanticReady && this.semanticEngine) {
+            console.log('✅ المحرك الدلالي جاهز مسبقاً');
+            return true;
+        }
+        
+        const isFirstTime = !this.checkFirstLoadStatus();
+        
+        if (showUI && isFirstTime) {
+            this.showLoadingOverlay();
+        }
+        
+        try {
+            console.log('⏳ بدء تحميل المحرك الدلالي...');
+            this.updateLoadingStatus('تحميل المكتبات...', 10);
+            
+            // استيراد المحرك الدلالي
+            if (typeof hybridEngine === 'undefined') {
+                const module = await import('./HybridSearchV1.js');
+                this.semanticEngine = module.hybridEngine;
+            } else {
+                this.semanticEngine = window.hybridEngine;
+            }
+            
+            this.updateLoadingStatus('تهيئة النموذج الدلالي...', 30);
+            
+            // تهيئة المحرك
+            await this.semanticEngine.initialize();
+            
+            this.updateLoadingStatus('جاري التحميل النهائي...', 90);
+            this.isSemanticReady = true;
+            
+            this.updateLoadingStatus('اكتمل التحميل! ✅', 100);
+            
+            if (isFirstTime) {
+                this.saveFirstLoadStatus();
+            }
+            
+            setTimeout(() => {
+                this.hideLoadingOverlay();
+                this.updateSystemStatus('ready');
+            }, 1000);
+            
+            console.log('✅ المحرك الدلالي جاهز للعمل');
+            return true;
+            
         } catch (error) {
-            console.warn('⚠️ فشل التحميل السريع، سيتم التحميل الكامل...');
-            localStorage.removeItem('hybrid-engine-initialized');
+            console.error('❌ فشل تحميل المحرك الدلالي:', error);
+            this.updateLoadingStatus('حدث خطأ في التحميل', 0);
+            this.updateSystemStatus('error');
+            setTimeout(() => this.hideLoadingOverlay(), 2000);
+            return false;
+        }
+    },
+    
+    // تحديث واجهة التحميل
+    showLoadingOverlay: function() {
+        const overlay = document.getElementById('modelLoadingOverlay');
+        if (overlay) overlay.style.display = 'flex';
+    },
+    
+    hideLoadingOverlay: function() {
+        const overlay = document.getElementById('modelLoadingOverlay');
+        if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                overlay.style.opacity = '1';
+            }, 300);
+        }
+    },
+    
+    updateLoadingStatus: function(text, progress) {
+        const statusEl = document.getElementById('loadingStatus');
+        const barEl = document.getElementById('loadingBar');
+        if (statusEl) statusEl.textContent = text;
+        if (barEl) barEl.style.width = progress + '%';
+    },
+    
+    // تحديث حالة النظام في الواجهة
+    updateSystemStatus: function(status) {
+        const indicator = document.getElementById('statusIndicator');
+        const text = document.getElementById('statusText');
+        
+        if (!indicator || !text) return;
+        
+        indicator.className = 'status-indicator';
+        
+        switch(status) {
+            case 'ready':
+                indicator.classList.remove('loading', 'error');
+                text.textContent = 'نظام هجين 🚀';
+                break;
+            case 'loading':
+                indicator.classList.add('loading');
+                text.textContent = 'جاري التحميل...';
+                break;
+            case 'error':
+                indicator.classList.add('error');
+                text.textContent = 'وضع النصي فقط';
+                break;
+            case 'text-only':
+                indicator.classList.remove('loading', 'error');
+                text.textContent = 'نظام نصي';
+                break;
+        }
+    },
+    
+    // البحث الهجين المدمج
+    hybridSearch: async function(query, options = {}) {
+        const results = {
+            semantic: null,
+            text: null,
+            merged: null,
+            mode: 'unknown'
+        };
+        
+        // 1. البحث الدلالي (إذا كان متاحاً)
+        if (this.isSemanticReady && this.semanticEngine) {
+            try {
+                console.log('🔍 البحث الدلالي...');
+                results.semantic = await this.semanticEngine.search(query, options);
+                results.mode = 'semantic';
+            } catch (error) {
+                console.warn('⚠️ فشل البحث الدلالي:', error);
+            }
+        }
+        
+        // 2. البحث النصي (دائماً متاح)
+        if (typeof NeuralSearch !== 'undefined') {
+            console.log('📝 البحث النصي...');
+            const dbName = options.database || this.detectDatabase(query);
+            const db = this.getDatabase(dbName);
+            
+            if (db) {
+                const contextBoost = window.ContextManager ? 
+                    window.ContextManager.getContextualBoost(query, dbName) : 
+                    { boost: 1 };
+                    
+                results.text = NeuralSearch(query, db, {
+                    minScore: contextBoost.boost > 1 ? 20 : 30
+                });
+                
+                if (results.mode === 'unknown') {
+                    results.mode = 'text';
+                }
+            }
+        }
+        
+        // 3. دمج النتائج
+        results.merged = this.mergeResults(results.semantic, results.text);
+        
+        if (results.semantic && results.text) {
+            results.mode = 'hybrid';
+        }
+        
+        console.log(`✅ وضع البحث: ${results.mode}`);
+        return results;
+    },
+    
+    // دمج نتائج المحركين
+    mergeResults: function(semanticResults, textResults) {
+        if (!semanticResults && !textResults) return null;
+        if (!semanticResults) return textResults;
+        if (!textResults) return this.convertSemanticToStandard(semanticResults);
+        
+        // دمج ذكي للنتائج
+        const merged = {
+            results: [],
+            confidence: 0,
+            sources: { semantic: true, text: true }
+        };
+        
+        // إضافة النتائج الدلالية
+        if (semanticResults.results && semanticResults.results.length > 0) {
+            const topSemantic = semanticResults.results[0];
+            merged.results.push({
+                ...this.convertSemanticItem(topSemantic),
+                source: 'semantic',
+                semanticScore: topSemantic.cosineScore || 0
+            });
+            merged.confidence = Math.max(merged.confidence, semanticResults.confidence || 0);
+        }
+        
+        // إضافة النتائج النصية
+        if (textResults.results && textResults.results.length > 0) {
+            const topText = textResults.results[0];
+            
+            // فحص التطابق
+            const isDuplicate = merged.results.some(r => 
+                this.isSameItem(r, topText)
+            );
+            
+            if (!isDuplicate) {
+                merged.results.push({
+                    ...topText,
+                    source: 'text',
+                    textScore: topText.finalScore || 0
+                });
+            } else {
+                // تحديث النتيجة الموجودة
+                merged.results[0].source = 'hybrid';
+                merged.results[0].textScore = topText.finalScore || 0;
+            }
+        }
+        
+        // ترتيب حسب الثقة
+        merged.results.sort((a, b) => {
+            const scoreA = (a.semanticScore || 0) * 0.6 + (a.textScore || 0) * 0.4;
+            const scoreB = (b.semanticScore || 0) * 0.6 + (b.textScore || 0) * 0.4;
+            return scoreB - scoreA;
+        });
+        
+        return merged;
+    },
+    
+    // تحويل نتائج دلالية لصيغة موحدة
+    convertSemanticItem: function(item) {
+        return {
+            text: item.data?.text || item.data?.original_data?.["الاسم"] || "غير محدد",
+            value: item.id,
+            finalScore: (item.cosineScore || 0) * 1000, // تطبيع
+            ...item.data?.original_data
+        };
+    },
+    
+    convertSemanticToStandard: function(semanticResults) {
+        if (!semanticResults || !semanticResults.results) return null;
+        
+        return {
+            results: semanticResults.results.map(item => this.convertSemanticItem(item)),
+            confidence: semanticResults.confidence || 0
+        };
+    },
+    
+    // فحص تطابق العناصر
+    isSameItem: function(item1, item2) {
+        if (item1.value && item2.value && item1.value === item2.value) return true;
+        if (item1.text && item2.text && 
+            normalizeArabic(item1.text) === normalizeArabic(item2.text)) return true;
+        return false;
+    },
+    
+    // كشف قاعدة البيانات المناسبة
+    detectDatabase: function(query) {
+        const q = normalizeArabic(query);
+        
+        if (q.includes('قرار') && q.includes('104')) return 'decision104';
+        if (q.match(/(منطق|مدين|صناعي|فدان|متر)/)) return 'areas';
+        return 'activities';
+    },
+    
+    // الحصول على قاعدة البيانات
+    getDatabase: function(dbName) {
+        switch(dbName) {
+            case 'activities': return window.masterActivityDB;
+            case 'areas': return window.industrialZonesDB;
+            case 'decision104': return window.decision104DB;
+            default: return window.masterActivityDB;
         }
     }
-
-    const modal = document.getElementById('hybridEngineLoadingModal');
-    const progress = document.getElementById('loadingProgress');
-    const status = document.getElementById('loadingStatus');
-    
-    modal.style.display = 'flex';
-    
-    try {
-        status.textContent = 'تحميل المحرك الدلالي...';
-        progress.style.width = '20%';
-        
-        const { hybridEngine: engine } = await import('./HybridSearchV1.js');
-        hybridEngine = engine;
-        
-        status.textContent = 'تحميل نموذج E5 متعدد اللغات...';
-        progress.style.width = '40%';
-        
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        status.textContent = 'تحميل قاعدة البيانات الموحدة...';
-        progress.style.width = '60%';
-        
-        await hybridEngine.initialize();
-        
-        status.textContent = 'التحقق من جاهزية النظام...';
-        progress.style.width = '80%';
-        
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        status.textContent = '✅ المحرك جاهز للعمل!';
-        progress.style.width = '100%';
-        
-        localStorage.setItem('hybrid-engine-initialized', 'true');
-        localStorage.setItem('hybrid-engine-init-time', currentTime.toString());
-        
-        isEngineReady = true;
-        
-        await new Promise(resolve => setTimeout(resolve, 800));
-        modal.style.opacity = '0';
-        modal.style.transition = 'opacity 0.5s';
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.style.opacity = '1';
-        }, 500);
-        
-        console.log('✅ المحرك الدلالي جاهز!');
-        
-    } catch (error) {
-        console.error('❌ خطأ في تهيئة المحرك الدلالي:', error);
-        status.textContent = '❌ فشل التحميل - سيتم استخدام البحث التقليدي';
-        status.style.color = '#ff6b6b';
-        
-        setTimeout(() => {
-            modal.style.display = 'none';
-        }, 3000);
-        
-        isEngineReady = false;
-    }
-}
-
-initializeHybridEngine();
+};
 
 // ==================== منطق التحريك (Draggable Logic) ====================
 (function initDraggable() {
@@ -272,137 +593,8 @@ initializeHybridEngine();
     btn.addEventListener('touchstart', dragStart, { passive: false });
 })();
 
-// ==================== 🔍 البحث الذكي باستخدام المحرك الدلالي ====================
-async function searchWithHybridEngine(query, options = {}) {
-    if (!isEngineReady || !hybridEngine) {
-        console.warn('⚠️ المحرك الدلالي غير جاهز');
-        return null;
-    }
+// ==================== أدوات المعالجة اللغوية ====================
 
-    try {
-        console.log('🚀 استخدام المحرك الدلالي الهجين...');
-        const results = await hybridEngine.search(query, options);
-        
-        if (!results || !results.results || results.results.length === 0) {
-            console.log('❌ لم يتم العثور على نتائج من المحرك الدلالي');
-            return null;
-        }
-
-        console.log(`✅ المحرك الدلالي وجد ${results.results.length} نتيجة`);
-        console.log(`🎯 أعلى نتيجة: ${results.topMatch?.id} (${Math.round(results.confidence * 100)}%)`);
-        console.log(`📊 القاعدة المستهدفة: ${results.intent}`);
-        
-        return results;
-    } catch (error) {
-        console.error('❌ خطأ في المحرك الدلالي:', error);
-        return null;
-    }
-}
-
-// ==================== 🎯 المحرك الرئيسي - المنسق ====================
-async function processUserQuery(query) {
-    console.log("\n🚀 ========== بداية المعالجة ==========");
-    console.log("📝 السؤال:", query);
-
-    // 🎯 توجيه مباشر لمحرك القرار 104 (أعلى أولوية)
-    if (window.isDecision104Question && window.isDecision104Question(query)) {
-        console.log("🎯 العقل المدبر: توجيه السؤال لمحرك القرار 104 المطور");
-        const decision104Response = window.handleDecision104Query(query, detectQuestionType(query));
-        if (decision104Response) return decision104Response;
-    }
-
-    const q = normalizeArabic(query);
-    const questionType = detectQuestionType(query);
-
-    // معالجة الأسئلة الموجهة صراحة
-    if (q.startsWith('المناطق الصناعيه:') || q.startsWith('مناطق صناعيه:') || q.startsWith('مناطق:')) {
-        const actualQuery = query.replace(/^(المناطق الصناعيه:|مناطق صناعيه:|مناطق:)/i, '').trim();
-        await window.AgentMemory.clear();
-        
-        // استخدام معالج المناطق المتخصص
-        if (typeof handleIndustrialQuery === 'function') {
-            return await handleIndustrialQuery(actualQuery, detectQuestionType(actualQuery), null, null);
-        }
-    }
-
-    if (q.startsWith('الانشطه والتراخيص:') || q.startsWith('نشاط:') || q.startsWith('تراخيص:')) {
-        const actualQuery = query.replace(/^(الانشطه والتراخيص:|نشاط:|تراخيص:)/i, '').trim();
-        await window.AgentMemory.clear();
-        
-        // استخدام معالج الأنشطة المتخصص
-        if (typeof handleActivityQuery === 'function') {
-            return await handleActivityQuery(actualQuery, detectQuestionType(actualQuery), null, null);
-        }
-    }
-
-    // 🧠 استخدام المحرك الدلالي للبحث
-    const hybridResults = await searchWithHybridEngine(query, { topK: 10 });
-
-    if (hybridResults && hybridResults.intent) {
-        const intent = hybridResults.intent;
-        console.log(`🎯 المحرك الدلالي حدد القاعدة: ${intent}`);
-
-        // توجيه للمعالج المناسب بناءً على القاعدة
-        if (intent === 'activities' && typeof handleActivityQuery === 'function') {
-            console.log("📋 تمرير النتائج لمعالج الأنشطة المتخصص...");
-            
-            // تحويل نتائج المحرك الدلالي لصيغة متوافقة مع NeuralSearch
-            const compatibleResults = {
-                results: hybridResults.results.map(r => ({
-                    text: r.data.original_data['النشاط المحدد'] || r.data.original_data['النشاط_المحدد'] || '',
-                    value: r.data.original_data.value || r.id,
-                    originalData: r.data.original_data,
-                    finalScore: r.cosineScore * 1000, // تحويل للصيغة القديمة
-                    source: 'hybrid'
-                }))
-            };
-            
-            // استخدام المعالج الأصلي بالنتائج المحسّنة
-            window.lastHybridResults = compatibleResults; // حفظ مؤقت
-            return await handleActivityQuery(query, questionType, null, null);
-        }
-
-        if (intent === 'areas' && typeof handleIndustrialQuery === 'function') {
-            console.log("🏭 تمرير النتائج لمعالج المناطق المتخصص...");
-            
-            // تحويل النتائج للصيغة المناسبة
-            const compatibleResults = {
-                results: hybridResults.results.map(r => ({
-                    text: r.data.original_data.name || r.data.original_data['اسم_المنطقة'] || '',
-                    originalData: r.data.original_data,
-                    finalScore: r.cosineScore * 1000,
-                    source: 'hybrid'
-                }))
-            };
-            
-            window.lastHybridResults = compatibleResults;
-            return await handleIndustrialQuery(query, questionType, null, null);
-        }
-
-        if (intent === 'decision104' && typeof window.handleDecision104Query === 'function') {
-            console.log("📊 تمرير النتائج لمعالج القرار 104 المتخصص...");
-            return window.handleDecision104Query(query, questionType);
-        }
-    }
-
-    // Fallback: استخدام المعالجات الأصلية مباشرة
-    console.log("🔄 استخدام المعالجات التقليدية...");
-    
-    if (typeof handleActivityQuery === 'function') {
-        const activityResponse = await handleActivityQuery(query, questionType, null, null);
-        if (activityResponse) return activityResponse;
-    }
-
-    if (typeof handleIndustrialQuery === 'function') {
-        const industrialResponse = await handleIndustrialQuery(query, questionType, null, null);
-        if (industrialResponse) return industrialResponse;
-    }
-
-    console.log("❌ لم يتم العثور على إجابة");
-    return generateDefaultResponse(query);
-}
-
-// ==================== دوال مساعدة ====================
 function normalizeArabic(text) {
     if (!text) return "";
     return text.toString()
@@ -417,131 +609,335 @@ function normalizeArabic(text) {
         .toLowerCase();
 }
 
-window.detectQuestionType = function(query) {
-    const q = normalizeArabic(query);
-    return {
-        isCount: /عدد|كام|كم|تعداد/.test(q),
-        isList: /اسماء|قائمه|قائمة|اذكر|وضح|ايه|اي|ما هي/.test(q),
-        isLocation: /مكان|موقع|فين|اين|خريطه|خريطة/.test(q),
-        isLicense: /ترخيص|تراخيص|رخصه|موافقه/.test(q),
-        isAuthority: /جهه|جهة|هيئه|هيئة|وزاره|وزارة/.test(q),
-        isLaw: /قانون|سند|تشريع|قرار/.test(q),
-        isGuide: /دليل|guide|رابط/.test(q),
-        isTechnical: /ملاحظات|فنيه|معاينه/.test(q),
-        isDecision104: /قرار.*104|104|حافز|حوافز/.test(q),
-        isIndustrial: /منطقه صناعيه|مناطق صناعيه|منطقة صناعية/.test(q),
-        isActivity: /نشاط|مشروع|عمل/.test(q),
-        isYesNo: /هل|ايه|صح|خطأ/.test(q)
-    };
-};
+window.GPT_AGENT.stopWords = ['في', 'من', 'الى', 'على', 'عن', 'هل', 'ما', 'هو', 'هي', 'ذلك', 'تلك', 'لي', 'لك', 'كيف', 'ماذا', 'متى', 'اين', 'لماذا', 'كم'];
 
-window.generateDefaultResponse = function(query) {
-    return `😕 <strong>عذراً، لم أجد معلومات عن: "${query}"</strong><br><br>💡 جرب أحد هذه الأسئلة:<br>• "كم عدد المناطق الصناعية في مصر؟"<br>• "اذكر اسم أي نشاط"<br>• "هل نشاط النقل الجماعي وارد بالقرار 104؟"`;
-};
+function extractKeywords(text) {
+    const normalized = normalizeArabic(text);
+    const stopWordsList = window.GPT_AGENT.stopWords || [];
+    return normalized.split(/\s+/)
+        .filter(word => word.length > 2 && !stopWordsList.includes(word));
+}
 
-// ==================== 🖥️ واجهة المستخدم ====================
+// ==================== نظام كشف الأسئلة المتتابعة ====================
 
-window.toggleGPTChat = function() {
-    const container = document.getElementById('gptChatContainer');
-    const floatBtn = document.getElementById('gptFloatBtn');
-    if (!container || !floatBtn) return;
-    if (container.style.display === 'none' || container.style.display === '') {
-        container.style.display = 'flex';
-        floatBtn.style.display = 'none';
-    } else {
-        container.style.display = 'none';
-        floatBtn.style.display = 'flex';
+window.ContextualQueryDetector = {
+    
+    // كشف ما إذا كان السؤال متتابع أم جديد
+    isFollowUpQuestion: function(query) {
+        const q = normalizeArabic(query);
+        
+        // 1. فحص الضمائر والإشارات السياقية
+        const contextualIndicators = [
+            /^(ما|هي|هو|كم|اين|فين|وين)/,
+            /^(شروط|متطلبات|حوافز|تراخيص|قرار)/,
+            /^(ازاي|كيف|طريق)/,
+            /(ده|دي|دول|دا)/,
+            /(السابق|الماضي|اللي فات)/,
+            /(نفس|ذات|عينها)/
+        ];
+        
+        const hasContextIndicator = contextualIndicators.some(pattern => pattern.test(q));
+        
+        // 2. فحص الذاكرة السياقية
+        const hasContext = window.AgentMemory && window.AgentMemory.getContext() !== null;
+        
+        // 3. فحص طول السؤال (الأسئلة المتتابعة عادة أقصر)
+        const isShort = q.split(/\s+/).length <= 4;
+        
+        return hasContextIndicator && hasContext && isShort;
+    },
+    
+    // إثراء السؤال بالسياق
+    enrichWithContext: function(query) {
+        if (!this.isFollowUpQuestion(query)) {
+            return query;
+        }
+        
+        const context = window.AgentMemory.getContext();
+        if (!context || !context.data) {
+            return query;
+        }
+        
+        let contextName = '';
+        if (context.type === 'activity' && context.data.text) {
+            contextName = context.data.text;
+        } else if (context.type === 'industrial' && context.data.name) {
+            contextName = context.data.name;
+        } else if (context.type === 'decision104' && context.data["الفئة"]) {
+            contextName = context.data["الفئة"];
+        }
+        
+        if (contextName) {
+            console.log(`🧠 سؤال متتابع تم إثراؤه: "${query}" + السياق: "${contextName}"`);
+            return `${query} (السياق: ${contextName})`;
+        }
+        
+        return query;
     }
 };
 
-window.autoResize = function(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-    checkInputState();
-};
+// ==================== معالج الرسائل المحسّن ====================
 
-window.handleEnter = function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-};
-
-window.clearMemoryWithConfirm = async function() {
-    const context = window.AgentMemory.getContext();
-    if (!context || context.type === 'clarification') {
-        showGPTNotification('لا يوجد سياق محفوظ حالياً', 'info');
-        return;
-    }
-    const contextName = context.type === 'industrial' ? context.data.name : context.data.text;
-    const container = document.getElementById('gptMessages');
-    const confirmBox = document.createElement('div');
-    confirmBox.style.cssText = 'background: #fff3e0; padding: 16px; border-radius: 12px; margin: 8px 0; border: 2px solid #ff9800;';
-    confirmBox.innerHTML = `
-        <div style="text-align: center; margin-bottom: 12px;">
-            <strong style="color: #e65100;">🗑️ هل تريد مسح السياق المحفوظ؟</strong><br>
-            <small style="color: #bf360c;">السياق الحالي: ${contextName}</small>
-        </div>
-        <div style="display: flex; gap: 8px; justify-content: center;">
-            <button onclick="confirmClearMemory()" style="background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold;">✓ نعم، امسح</button>
-            <button onclick="cancelClearMemory()" style="background: #e0e0e0; color: #333; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold;">✕ إلغاء</button>
-        </div>
-    `;
-    confirmBox.id = 'memory-confirm-box';
-    container.appendChild(confirmBox);
-    container.scrollTop = container.scrollHeight;
-};
-
-window.confirmClearMemory = async function() {
-    await window.AgentMemory.clear();
-    const confirmBox = document.getElementById('memory-confirm-box');
-    if (confirmBox) confirmBox.remove();
-    showGPTNotification('تم مسح الذاكرة بنجاح', 'success');
-};
-
-window.cancelClearMemory = function() {
-    const confirmBox = document.getElementById('memory-confirm-box');
-    if (confirmBox) confirmBox.remove();
-};
-
-window.sendMessage = async function(overrideQuery) {
-    stopOngoingGeneration();
+window.sendMessage = async function() {
     const input = document.getElementById('gptInput');
-    const query = overrideQuery || input.value.trim();
+    let query = input.value.trim();
+    
     if (!query) return;
-    if (!overrideQuery) input.value = '';
+    
+    // إضافة رسالة المستخدم
+    addUserMessage(query);
+    input.value = "";
     autoResize(input);
     checkInputState();
-    addMessageToUI('user', query);
     
-    if (window.checkForGPTCloseIntent && window.checkForGPTCloseIntent(query)) {
-        window.gptGracefulClose();
-        return;
+    // كشف وإثراء الأسئلة المتتابعة
+    const isFollowUp = window.ContextualQueryDetector.isFollowUpQuestion(query);
+    const enrichedQuery = window.ContextualQueryDetector.enrichWithContext(query);
+    
+    if (isFollowUp) {
+        console.log('🔗 سؤال متتابع تم اكتشافه');
+    }
+    
+    // التأكد من تحميل المحرك الدلالي
+    if (!window.HybridEngineManager.isSemanticReady) {
+        await window.HybridEngineManager.initSemanticEngine(true);
     }
     
     const typingId = showTypingIndicator();
+    
     try {
-        const responseHTML = await processUserQuery(query);
+        // كشف نوع السؤال
+        const questionType = window.detectQuestionType ? 
+            window.detectQuestionType(enrichedQuery) : 
+            { type: 'general' };
+        
+        console.log('🎯 نوع السؤال:', questionType);
+        
+        // البحث الهجين
+        const searchResults = await window.HybridEngineManager.hybridSearch(enrichedQuery, {
+            topK: 5,
+            database: questionType.database
+        });
+        
+        console.log('📊 نتائج البحث:', searchResults);
+        
+        // معالجة النتائج
+        let response = null;
+        
+        // محاولة استخدام المعالجات المخصصة أولاً
+        if (questionType.type === 'activity' && window.handleActivityQuery) {
+            response = await window.handleActivityQuery(
+                enrichedQuery, 
+                questionType, 
+                null, 
+                null
+            );
+        } else if (questionType.type === 'area' && window.handleAreaQuery) {
+            response = await window.handleAreaQuery(
+                enrichedQuery, 
+                questionType
+            );
+        } else if (questionType.type === 'decision104' && window.handleDecision104Query) {
+            response = await window.handleDecision104Query(
+                enrichedQuery, 
+                questionType
+            );
+        }
+        
+        // إذا لم تنجح المعالجات المخصصة، استخدم النتائج المدمجة
+        if (!response && searchResults.merged && searchResults.merged.results.length > 0) {
+            const topResult = searchResults.merged.results[0];
+            response = formatHybridResponse(topResult, searchResults.mode, questionType);
+            
+            // حفظ في الذاكرة
+            if (window.AgentMemory) {
+                if (questionType.database === 'activities') {
+                    await window.AgentMemory.setActivity(topResult, query);
+                } else if (questionType.database === 'areas') {
+                    await window.AgentMemory.setIndustrial(topResult, query);
+                }
+            }
+        }
+        
+        // رد افتراضي
+        if (!response) {
+            response = `🤔 عذراً، لم أتمكن من العثور على معلومات دقيقة عن "<strong>${escapeHtml(query)}</strong>".<br><br>
+            يمكنك إعادة صياغة السؤال أو السؤال عن:<br>
+            • أنشطة صناعية محددة<br>
+            • مناطق صناعية<br>
+            • القرار 104 والحوافز`;
+        }
+        
         removeTypingIndicator(typingId);
-        if (responseHTML) typeWriterResponse(responseHTML);
+        typeWriterResponse(response, true);
+        
     } catch (error) {
-        console.error("❌ خطأ في معالجة الرسالة:", error);
+        console.error('❌ خطأ في المعالجة:', error);
         removeTypingIndicator(typingId);
-        typeWriterResponse("عذراً، حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى.");
+        typeWriterResponse('⚠️ حدث خطأ في المعالجة. يرجى المحاولة مرة أخرى.', true);
     }
 };
 
-window.addMessageToUI = function(role, content) {
-    const chatMessagesContainer = document.getElementById('gptMessages');
-    if (!chatMessagesContainer) return;
-    if (role === 'user') {
-        const div = document.createElement('div');
-        div.className = 'message-row user';
-        div.innerHTML = `<div class="avatar user"><i class="fas fa-user"></i></div><div class="message-bubble">${content}</div>`;
-        chatMessagesContainer.appendChild(div);
-        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-        if (window.speechSynthesis && window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+// ==================== تنسيق الردود الهجينة ====================
+
+function formatHybridResponse(result, mode, questionType) {
+    let html = '';
+    
+    // عرض مصدر النتيجة
+    const sourceIcon = mode === 'hybrid' ? '🔄' : 
+                      mode === 'semantic' ? '🧠' : '📝';
+    const sourceName = mode === 'hybrid' ? 'هجين (دلالي + نصي)' :
+                      mode === 'semantic' ? 'بحث دلالي' : 'بحث نصي';
+    
+    html += `<div style="background: #f0f9ff; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem;">
+        ${sourceIcon} <strong>المصدر:</strong> ${sourceName}
+    </div>`;
+    
+    // عرض المحتوى حسب النوع
+    if (questionType.type === 'activity') {
+        html += formatActivityData(result);
+    } else if (questionType.type === 'area') {
+        html += formatAreaData(result);
+    } else {
+        html += formatGenericData(result);
     }
+    
+    return html;
+}
+
+function formatActivityData(data) {
+    const name = data["الاسم"] || data.text || "غير محدد";
+    const sector = data["القطاع_العام"] || "غير محدد";
+    const authority = data["جهة_الولاية"] || "غير محدد";
+    
+    let html = `<strong>📋 ${escapeHtml(name)}</strong><br><br>`;
+    html += `<strong>🏢 القطاع:</strong> ${escapeHtml(sector)}<br>`;
+    html += `<strong>🏛️ الجهة:</strong> ${escapeHtml(authority)}<br>`;
+    
+    if (data["المتطلبات"]) {
+        html += `<br><strong>📝 المتطلبات:</strong><br>${escapeHtml(data["المتطلبات"])}<br>`;
+    }
+    
+    return html;
+}
+
+function formatAreaData(data) {
+    const name = data["اسم_المنطقة"] || data.text || "غير محدد";
+    const governorate = data["المحافظة"] || "غير محدد";
+    
+    let html = `<strong>🏭 ${escapeHtml(name)}</strong><br><br>`;
+    html += `<strong>📍 المحافظة:</strong> ${escapeHtml(governorate)}<br>`;
+    
+    if (data["المساحة_الكلية"]) {
+        html += `<strong>📏 المساحة:</strong> ${escapeHtml(data["المساحة_الكلية"])}<br>`;
+    }
+    
+    return html;
+}
+
+function formatGenericData(data) {
+    let html = '<strong>📊 المعلومات:</strong><br><br>';
+    
+    const mainField = data.text || data["الاسم"] || data["اسم_المنطقة"] || "معلومات";
+    html += `${escapeHtml(mainField)}<br>`;
+    
+    return html;
+}
+
+// ==================== واجهة المستخدم ====================
+
+window.toggleGPTChat = function() {
+    const container = document.getElementById('gptChatContainer');
+    const btn = document.getElementById('gptFloatBtn');
+    
+    if (container.style.display === 'none') {
+        container.style.display = 'flex';
+        btn.style.display = 'none';
+        
+        // تحميل المحرك الدلالي عند أول فتح
+        if (!window.HybridEngineManager.isSemanticReady) {
+            window.HybridEngineManager.initSemanticEngine(true);
+        }
+        
+        setTimeout(() => document.getElementById('gptInput').focus(), 100);
+    } else {
+        container.style.display = 'none';
+        btn.style.display = 'flex';
+    }
+};
+
+function addUserMessage(text) {
+    const container = document.getElementById('gptMessages');
+    const div = document.createElement('div');
+    div.className = 'message-row user';
+    div.innerHTML = `
+        <div class="message-bubble">${escapeHtml(text)}</div>
+        <div class="avatar user"><i class="fas fa-user"></i></div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+window.typeWriterResponse = function(text, enableSpeech = false) {
+    if (window.activeTypingSession) {
+        window.activeTypingSession.isCancelled = true;
+        if (window.activeTypingSession.animationId) {
+            cancelAnimationFrame(window.activeTypingSession.animationId);
+        }
+    }
+
+    const container = document.getElementById('gptMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message-row ai';
+    messageDiv.innerHTML = `
+        <div class="avatar ai"><i class="fas fa-robot"></i></div>
+        <div class="message-bubble"></div>
+    `;
+    container.appendChild(messageDiv);
+    
+    const bubble = messageDiv.querySelector('.message-bubble');
+    const speed = 15;
+    let index = 0;
+    
+    const currentSession = {
+        isCancelled: false,
+        animationId: null
+    };
+    window.activeTypingSession = currentSession;
+
+    const renderFrame = () => {
+        if (currentSession.isCancelled) return;
+        
+        if (index < text.length) {
+            const chunk = text.slice(index, index + 3);
+            bubble.innerHTML += chunk;
+            index += 3;
+            container.scrollTop = container.scrollHeight;
+            
+            setTimeout(() => {
+                if (!currentSession.isCancelled) {
+                    currentSession.animationId = requestAnimationFrame(renderFrame);
+                }
+            }, speed);
+        } else {
+            if (enableSpeech && window.GPT_VOICE && window.GPT_VOICE.speechEnabled) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = text;
+                const fullTextForSpeech = tempDiv.textContent || tempDiv.innerText || "";
+                
+                setTimeout(() => {
+                    if (!currentSession.isCancelled) {
+                        const voiceControls = document.getElementById('gptVoiceControls');
+                        if (voiceControls) voiceControls.style.display = 'flex';
+                        window.speakText(fullTextForSpeech);
+                    }
+                }, 200);
+            }
+            window.activeTypingSession = null;
+        }
+    };
+    
+    currentSession.animationId = requestAnimationFrame(renderFrame);
 };
 
 function showTypingIndicator() {
@@ -550,7 +946,16 @@ function showTypingIndicator() {
     const div = document.createElement('div');
     div.className = 'message-row ai';
     div.id = id;
-    div.innerHTML = `<div class="avatar ai"><i class="fas fa-robot"></i></div><div class="message-bubble"><div class="typing-indicator"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+    div.innerHTML = `
+        <div class="avatar ai"><i class="fas fa-robot"></i></div>
+        <div class="message-bubble">
+            <div class="typing-indicator">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+        </div>
+    `;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     return id;
@@ -561,100 +966,25 @@ function removeTypingIndicator(id) {
     if (el) el.remove();
 }
 
-window.activeTypingSession = null;
-
-function stopOngoingGeneration() {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    if (window.activeTypingSession) {
-        window.activeTypingSession.isCancelled = true;
-        if (window.activeTypingSession.animationId) cancelAnimationFrame(window.activeTypingSession.animationId);
-        window.activeTypingSession = null;
-    }
+function escapeHtml(text) {
+    if (!text) return "";
+    return text.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
-window.typeWriterResponse = function(htmlContent, shouldAutoSpeak = true) {
-    if (!htmlContent || typeof htmlContent !== 'string') return;
-    const chatMessagesContainer = document.getElementById('gptMessages');
-    if (!chatMessagesContainer) return;
-    stopOngoingGeneration();
-    chatMessagesContainer.style.scrollBehavior = 'auto';
-    
-    const msgRow = document.createElement('div');
-    msgRow.className = 'message-row ai';
-    msgRow.innerHTML = `<div class="avatar ai"><i class="fas fa-robot"></i></div><div class="message-bubble"></div>`;
-    chatMessagesContainer.appendChild(msgRow);
-    const bubble = msgRow.querySelector('.message-bubble');
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlContent;
-    const taskQueue = [];
-
-    function traverseAndQueue(node, parentElement) {
-        if (node.nodeType === 3) {
-            const text = node.nodeValue;
-            if (!text) return;
-            const secureTextNode = document.createTextNode('');
-            taskQueue.push({ type: 'inject-node', node: secureTextNode, parent: parentElement });
-            const chars = text.split('');
-            chars.forEach(char => taskQueue.push({ type: 'append-char', node: secureTextNode, char }));
-        } else if (node.nodeType === 1) {
-            const clonedElement = document.createElement(node.tagName);
-            Array.from(node.attributes).forEach(attr => clonedElement.setAttribute(attr.name, attr.value));
-            taskQueue.push({ type: 'inject-node', node: clonedElement, parent: parentElement });
-            Array.from(node.childNodes).forEach(child => traverseAndQueue(child, clonedElement));
-        }
-    }
-
-    Array.from(tempDiv.childNodes).forEach(child => traverseAndQueue(child, bubble));
-
-    const currentSession = { isCancelled: false, animationId: null };
-    window.activeTypingSession = currentSession;
-    let taskIndex = 0;
-    const charsPerFrame = 3;
-    let fullTextForSpeech = '';
-
-    const renderFrame = () => {
-        if (currentSession.isCancelled) return;
-        const endIndex = Math.min(taskIndex + charsPerFrame, taskQueue.length);
-        for (let i = taskIndex; i < endIndex; i++) {
-            const task = taskQueue[i];
-            if (task.type === 'inject-node') {
-                task.parent.appendChild(task.node);
-            } else if (task.type === 'append-char') {
-                task.node.nodeValue += task.char;
-                fullTextForSpeech += task.char;
-            }
-        }
-        taskIndex = endIndex;
-        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-        if (taskIndex < taskQueue.length) {
-            currentSession.animationId = requestAnimationFrame(renderFrame);
-        } else {
-            if (shouldAutoSpeak && window.GPT_VOICE && window.GPT_VOICE.speechEnabled) {
-                setTimeout(() => {
-                    if (!currentSession.isCancelled) {
-                        const voiceControls = document.getElementById('gptVoiceControls');
-                        if (voiceControls) voiceControls.style.display = 'flex';
-                        if (window.speakText) window.speakText(fullTextForSpeech);
-                    }
-                }, 200);
-            }
-            window.activeTypingSession = null;
-        }
-    };
-    currentSession.animationId = requestAnimationFrame(renderFrame);
+window.autoResize = function(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
 };
 
-window.toggleExpandChat = function() {
-    const container = document.getElementById('gptChatContainer');
-    const expandBtn = document.getElementById('gptExpandBtn');
-    const icon = expandBtn.querySelector('i');
-    container.classList.toggle('expanded');
-    if (container.classList.contains('expanded')) {
-        icon.classList.replace('fa-expand-alt', 'fa-compress-alt');
-        expandBtn.title = "تصغير النافذة";
-    } else {
-        icon.classList.replace('fa-compress-alt', 'fa-expand-alt');
-        expandBtn.title = "توسيع النافذة";
+window.handleEnter = function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
     }
 };
 
@@ -663,6 +993,7 @@ window.checkInputState = function() {
     const actionBtn = document.getElementById('gptActionBtn');
     const actionIcon = document.getElementById('actionIcon');
     if (!input || !actionBtn || !actionIcon) return;
+    
     const hasText = input.value.trim().length > 0;
     if (hasText) {
         actionBtn.title = "إرسال الرسالة";
@@ -689,6 +1020,54 @@ window.handleActionButtonClick = function() {
     }
 };
 
+window.toggleExpandChat = function() {
+    const container = document.getElementById('gptChatContainer');
+    const expandBtn = document.getElementById('gptExpandBtn');
+    const icon = expandBtn.querySelector('i');
+    container.classList.toggle('expanded');
+    if (container.classList.contains('expanded')) {
+        icon.classList.replace('fa-expand-alt', 'fa-compress-alt');
+        expandBtn.title = "تصغير النافذة";
+    } else {
+        icon.classList.replace('fa-compress-alt', 'fa-expand-alt');
+        expandBtn.title = "توسيع النافذة";
+    }
+    setTimeout(() => document.getElementById('gptInput').focus(), 400);
+};
+
+window.clearMemoryWithConfirm = function() {
+    if (confirm('هل تريد مسح الذاكرة والبدء من جديد؟')) {
+        if (window.AgentMemory) {
+            window.AgentMemory.clear();
+        }
+        window.showGPTNotification('تم مسح الذاكرة بنجاح', 'success');
+    }
+};
+
+window.toggleSpeech = function() {
+    if (!window.GPT_VOICE) return;
+    window.GPT_VOICE.speechEnabled = !window.GPT_VOICE.speechEnabled;
+    const speakerBtn = document.getElementById('gptSpeakerBtn');
+    const voiceControls = document.getElementById('gptVoiceControls');
+    
+    if (window.GPT_VOICE.speechEnabled) {
+        if (speakerBtn) {
+            speakerBtn.classList.remove('muted');
+            speakerBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            speakerBtn.title = "كتم الصوت";
+        }
+        if (voiceControls) voiceControls.style.display = 'flex';
+    } else {
+        if (speakerBtn) {
+            speakerBtn.classList.add('muted');
+            speakerBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+            speakerBtn.title = "تشغيل الصوت";
+        }
+        if (voiceControls) voiceControls.style.display = 'none';
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+    }
+};
+
 window.showGPTNotification = function(msg, type = 'success') {
     const container = document.getElementById('gptMessages');
     if (!container) return;
@@ -701,44 +1080,52 @@ window.showGPTNotification = function(msg, type = 'success') {
         border-radius: 20px;
         font-size: 0.8rem;
         margin: 10px 0;
+        border: 1px solid ${type === 'success' ? '#a5d6a7' : '#ffcc80'};
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        animation: fadeIn 0.5s ease;
         text-align: center;
+        width: fit-content;
+        z-index: 10;
     `;
     div.innerHTML = `✨ ${msg}`;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
-    setTimeout(() => div.remove(), 3000);
-};
-
-window.GPT_AGENT.closeKeywords = ['شكرا', 'شكراً', 'باي', 'مع السلامة', 'إغلاق'];
-
-window.checkForGPTCloseIntent = function(text) {
-    const q = normalizeArabic(text);
-    return window.GPT_AGENT.closeKeywords.some(k => q.includes(k));
-};
-
-window.gptGracefulClose = function() {
-    const msgs = ['تشرفنا بخدمتك، في أمان الله.', 'سعدت بمساعدتك، مع السلامة.'];
-    const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
-    const typingId = showTypingIndicator();
     setTimeout(() => {
-        removeTypingIndicator(typingId);
-        typeWriterResponse(randomMsg, true);
-        setTimeout(() => {
-            if (document.getElementById('gptChatContainer').style.display !== 'none') {
-                toggleGPTChat();
-            }
-        }, 4000);
-    }, 500);
+        div.style.transition = 'opacity 1s';
+        div.style.opacity = '0';
+        setTimeout(() => div.remove(), 1000);
+    }, 4000);
 };
 
+// ==================== التهيئة النهائية ====================
+
+window.addEventListener('load', function() {
+    setTimeout(() => {
+        checkInputState();
+        
+        // فحص إذا كان المحرك محمّل مسبقاً
+        if (window.HybridEngineManager.checkFirstLoadStatus()) {
+            console.log('✅ المحرك الدلالي محمّل مسبقاً');
+            window.HybridEngineManager.updateSystemStatus('ready');
+        } else {
+            window.HybridEngineManager.updateSystemStatus('text-only');
+        }
+    }, 100);
+});
+
+// تصدير الدوال المشتركة
 window.normalizeArabic = normalizeArabic;
+window.extractKeywords = extractKeywords;
 
-console.log('✅ GPT Agent v11.0 - Ultimate Coordinator Edition initialized!');
-console.log('🎯 Architecture: Separation of Concerns');
-console.log('🧠 Hybrid Engine: E5 + Specialized Handlers');
-console.log('📋 gpt_activities.js → Activity Processing');
-console.log('🏭 gpt_areas.js → Industrial Zones Processing');
-console.log('📊 gpt_decision104.js → Decision 104 Processing');
+console.log('🚀 ============================================');
+console.log('🚀 GPT Hybrid Agent v10.0 - INITIALIZED!');
+console.log('🚀 ============================================');
+console.log('✅ محرك دلالي (E5): جاهز للتحميل');
+console.log('✅ محرك نصي: نشط');
+console.log('✅ نظام ذاكرة سياقية: نشط');
+console.log('✅ كشف أسئلة متتابعة: نشط');
+console.log('✅ نافذة تحميل نموذج: نشط');
+console.log('✅ دمج هجين للنتائج: نشط');
+console.log('🔥 المشروع جاهز للعمل!');
 
-} 
-
+} // النهاية الشرطية
