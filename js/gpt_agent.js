@@ -1089,11 +1089,13 @@ async function processUserQuery(query) {
 
     // جراحة: لا تنفذ فوراً إلا إذا كانت الثقة الدلالية حقيقية (ليست ناتجة عن RRF فقط)
     // وإذا كان المعرف يبدأ بـ decision104، نتأكد من إرساله للمحرك المتخصص دون "تنظيف"
-    if (vectorMatch && (vectorConfidence > 0.70 || vectorMatch.id.includes('decision104'))) {
-        console.log("🎯 استخراج مباشر من قاعدة البيانات بالمعرف:", vectorMatch.id);
-        
-        if (vectorTargetDB === 'decision104') {
-             console.log("⚖️ تم الحسم الدلالي: السؤال يخص القرار 104");
+    if (vectorMatch && (vectorConfidence > 0.70 || vectorMatch.id.toLowerCase().includes('dec'))) {
+     console.log(`🎯 قبول النية الدلالية بثقة: ${Math.round(vectorConfidence * 100)}%`);
+     
+     if (vectorTargetDB === 'decision104' || vectorMatch.id.toLowerCase().includes('dec')) {
+         console.log("⚖️ توجيه ذكي لمسار القرار 104");
+         return handleDecision104Query(query, questionType);
+     }
              
              // 1. استخراج البيانات من المتجه
              const originalData = vectorMatch.data?.original_data;
@@ -1883,6 +1885,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
