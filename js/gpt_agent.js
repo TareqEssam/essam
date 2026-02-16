@@ -1559,7 +1559,7 @@ window.typeWriterResponse = function(htmlContent, shouldAutoSpeak = true) {
     currentSession.animationId = requestAnimationFrame(renderFrame);
 };
 
-function showTypingIndicator() {
+window.showTypingIndicator = function() {
     const id = 'typing-' + Date.now();
     const container = document.getElementById('gptMessages');
     const div = document.createElement('div');
@@ -1569,12 +1569,12 @@ function showTypingIndicator() {
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     return id;
-}
+};
 
-function removeTypingIndicator(id) {
+window.removeTypingIndicator = function(id) {
     const el = document.getElementById(id);
     if (el) el.remove();
-}
+};
 
 function escapeHtml(text) {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
@@ -1782,6 +1782,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
