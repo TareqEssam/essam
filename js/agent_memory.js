@@ -3,7 +3,8 @@
 
 window.AgentMemory = {
     storageKey: 'agent-memory',
-    lastActivity: null,
+    lastActivity: null,           // آخر نشاط عادي (من البحث العادي)
+    lastDecisionActivity: null,    // آخر نشاط من قرار 104 (مميز)
     lastIndustrial: null,
     previousContext: null,
     lastQuery: null,
@@ -16,6 +17,7 @@ window.AgentMemory = {
             if (dataStr) {
                 const data = JSON.parse(dataStr);
                 this.lastActivity = data.lastActivity || null;
+                this.lastDecisionActivity = data.lastDecisionActivity || null; // تحميل الخاصية الجديدة
                 this.lastIndustrial = data.lastIndustrial || null;
                 this.previousContext = data.previousContext || null;
                 this.lastQuery = data.lastQuery || null;
@@ -32,19 +34,18 @@ window.AgentMemory = {
         try {
             const data = {
                 lastActivity: this.lastActivity,
+                lastDecisionActivity: this.lastDecisionActivity, // حفظ الخاصية الجديدة
                 lastIndustrial: this.lastIndustrial,
                 previousContext: this.previousContext,
                 lastQuery: this.lastQuery,
                 pendingClarification: this.pendingClarification,
                 conversationContext: this.conversationContext,
-                // ✨ إضافة وسم زمني لضمان علمي لحداثة البيانات ومنع التشتت بسياقات قديمة جداً
-                lastUpdate: Date.now() 
+                lastUpdate: Date.now()
             };
             
             localStorage.setItem(this.storageKey, JSON.stringify(data));
 
-            // 🧠 إخطار المحرك الدلالي بتحديث السياق (الوعي المتبادل)
-            // هذا يسمح للمحرك الدلالي بمعرفة "عن ماذا نتحدث الآن" لتحسين نتائج البحث
+            // إخطار المحرك الدلالي بتحديث السياق
             if (window.hybridEngine && typeof window.hybridEngine.updateContextToken === 'function') {
                 window.hybridEngine.updateContextToken(this.getContext());
             }
@@ -54,6 +55,7 @@ window.AgentMemory = {
         }
     },
 
+    // تخزين نشاط عادي (من البحث العام)
     setActivity: async function(data, query) {
         if (this.lastActivity && this.lastActivity.value !== data.value) {
             this.previousContext = { type: 'activity', data: this.lastActivity };
@@ -61,10 +63,11 @@ window.AgentMemory = {
         this.lastActivity = data;
         this.lastQuery = query;
         this.pendingClarification = null;
-        await this.addToContext('activity', data.text);
+        await this.addToContext('activity', data.text || data.name);
         this.save();
     },
 
+    // تخزين نشاط صناعي
     setIndustrial: async function(data, query) {
         if (this.lastIndustrial && this.lastIndustrial.name !== data.name) {
             this.previousContext = { type: 'industrial', data: this.lastIndustrial };
@@ -76,21 +79,46 @@ window.AgentMemory = {
         this.save();
     },
 
-    getBacklinkContext: function() { return this.previousContext; },
-    setClarification: function(matches) { this.pendingClarification = matches; this.save(); },
+    // تخزين نشاط من قرار 104 (مميز)
+    setDecisionActivity: async function(data, query) {
+        // إذا كان هناك نشاط سابق مختلف من القرار 104، ننقله إلى الذاكرة السابقة
+        if (this.lastDecisionActivity && this.lastDecisionActivity.value !== data.value) {
+            this.previousContext = { type: 'decision104', data: this.lastDecisionActivity };
+        }
+        this.lastDecisionActivity = data;
+        this.lastQuery = query;
+        this.pendingClarification = null;
+        await this.addToContext('decision104', data.text || data.name);
+        this.save();
+    },
+
+    getBacklinkContext: function() {
+        return this.previousContext;
+    },
+
+    setClarification: function(matches) {
+        this.pendingClarification = matches;
+        this.save();
+    },
+
     addToContext: async function(type, value) {
         this.conversationContext.push({ type, value, timestamp: Date.now() });
         if (this.conversationContext.length > 10) this.conversationContext.shift();
         this.save();
     },
+
+    // إرجاع السياق الحالي مع تحديد الأولوية
     getContext: function() {
         if (this.pendingClarification) return { type: 'clarification', data: this.pendingClarification };
+        if (this.lastDecisionActivity) return { type: 'decision104', data: this.lastDecisionActivity }; // أولوية لنشاط القرار 104
         if (this.lastIndustrial) return { type: 'industrial', data: this.lastIndustrial };
         if (this.lastActivity) return { type: 'activity', data: this.lastActivity };
         return null;
     },
+
     clear: async function() {
         this.lastActivity = null;
+        this.lastDecisionActivity = null; // مسح الخاصية الجديدة
         this.lastIndustrial = null;
         this.previousContext = null;
         this.lastQuery = null;
