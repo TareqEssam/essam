@@ -1095,7 +1095,7 @@ async function processUserQuery(query) {
      if (vectorTargetDB === 'decision104' || vectorMatch.id.toLowerCase().includes('dec')) {
          console.log("⚖️ توجيه ذكي لمسار القرار 104");
          return handleDecision104Query(query, questionType);
-     }
+     }}
              
              // 1. استخراج البيانات من المتجه
              const originalData = vectorMatch.data?.original_data;
@@ -1885,6 +1885,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
