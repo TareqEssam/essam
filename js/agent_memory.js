@@ -5,6 +5,7 @@ window.AgentMemory = {
     storageKey: 'agent-memory',
     lastActivity: null,
     lastIndustrial: null,
+    lastDecisionActivity: null,
     previousContext: null,
     lastQuery: null,
     pendingClarification: null,
@@ -76,6 +77,15 @@ window.AgentMemory = {
         this.save();
     },
 
+    setDecisionActivity: async function(data, query) {
+        this.lastDecisionActivity = data;
+        this.lastQuery = query;
+        this.pendingClarification = null;
+        // إضافة النشاط لسياق المحادثة ليعرف المحرك الدلالي أننا نتحدث عن هذا النشاط
+        await this.addToContext('decision104', data.activity);
+        this.save();
+        console.log("💾 تم حفظ سياق القرار 104:", data.activity);
+    },
     getBacklinkContext: function() { return this.previousContext; },
     setClarification: function(matches) { this.pendingClarification = matches; this.save(); },
     addToContext: async function(type, value) {
@@ -103,3 +113,4 @@ window.AgentMemory = {
 
 // تشغيل التحميل فوراً
 window.AgentMemory.load();
+
