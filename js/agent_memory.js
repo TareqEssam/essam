@@ -18,6 +18,7 @@ window.AgentMemory = {
                 const data = JSON.parse(dataStr);
                 this.lastActivity = data.lastActivity || null;
                 this.lastIndustrial = data.lastIndustrial || null;
+                this.lastDecisionActivity = data.lastDecisionActivity || null;
                 this.previousContext = data.previousContext || null;
                 this.lastQuery = data.lastQuery || null;
                 this.pendingClarification = data.pendingClarification || null;
@@ -34,6 +35,7 @@ window.AgentMemory = {
             const data = {
                 lastActivity: this.lastActivity,
                 lastIndustrial: this.lastIndustrial,
+                lastDecisionActivity: this.lastDecisionActivity,
                 previousContext: this.previousContext,
                 lastQuery: this.lastQuery,
                 pendingClarification: this.pendingClarification,
@@ -113,4 +115,5 @@ window.AgentMemory = {
 
 // تشغيل التحميل فوراً
 window.AgentMemory.load();
+
 
