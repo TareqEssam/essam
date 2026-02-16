@@ -1130,7 +1130,7 @@ async function processUserQuery(query) {
             const area = industrialAreasData.find(a => a.name === vectorMatch.id);
             if (area) { await AgentMemory.setIndustrial(area, query); return formatIndustrialResponse(area); }
         }
-   
+   }
 
      // ب. [التوجيه الدلالي الذكي] تنفيذ بناءً على النية المصنفة
                 if (vectorMatch && vectorConfidence > 0.30) {
@@ -1883,6 +1883,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
