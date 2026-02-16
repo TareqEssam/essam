@@ -709,111 +709,8 @@ const DeepIntentAnalyzer = {
     }
 };
 
-// ==================== الذاكرة السياقية مع التخزين الدائم ====================
-window.AgentMemory = {
-    storageKey: 'agent-memory',
-    lastActivity: null,
-    lastIndustrial: null,
-    previousContext: null,
-    lastQuery: null,
-    pendingClarification: null,
-    conversationContext: [],
 
-    async load() {
-        try {
-            const dataStr = localStorage.getItem(this.storageKey);
-            if (dataStr) {
-                const data = JSON.parse(dataStr);
-                this.lastActivity = data.lastActivity || null;
-                this.lastIndustrial = data.lastIndustrial || null;
-                this.previousContext = data.previousContext || null;
-                this.lastQuery = data.lastQuery || null;
-                this.pendingClarification = data.pendingClarification || null;
-                this.conversationContext = data.conversationContext || [];
-            }
-        } catch (error) {
-            console.log('📝 بدء ذاكرة جديدة (تم استخدام localStorage)');
-        }
-    },
-
-    async save() {
-        try {
-            const data = {
-                lastActivity: this.lastActivity,
-                lastIndustrial: this.lastIndustrial,
-                previousContext: this.previousContext,
-                lastQuery: this.lastQuery,
-                pendingClarification: this.pendingClarification,
-                conversationContext: this.conversationContext,
-                lastUpdate: Date.now() // إضافة الوسم الزمني
-            };
-            localStorage.setItem(this.storageKey, JSON.stringify(data));
-
-            // ✨ الوصلة العصبية: إخطار المحرك الدلالي بالسياق فور حفظه
-            if (window.hybridEngine && typeof window.hybridEngine.updateContextToken === 'function') {
-                window.hybridEngine.updateContextToken(this.getContext());
-            }
-        } catch (error) {
-            console.error('⚠️ فشل حفظ الذاكرة في localStorage:', error);
-        }
-    },
-
-    async setActivity(data, query) {
-        if (this.lastActivity && this.lastActivity.value !== data.value) {
-            this.previousContext = { type: 'activity', data: this.lastActivity };
-            console.log("💾 تم نقل النشاط السابق للذاكرة الاحتياطية: ", this.lastActivity.text);
-        }
-        this.lastActivity = data;
-        this.lastQuery = query;
-        this.pendingClarification = null;
-        await this.addToContext('activity', data.text);
-        await this.save();
-    },
-
-    async setIndustrial(data, query) {
-        if (this.lastIndustrial && this.lastIndustrial.name !== data.name) {
-            this.previousContext = { type: 'industrial', data: this.lastIndustrial };
-            console.log("💾 تم نقل المنطقة السابقة للذاكرة الاحتياطية: ", this.lastIndustrial.name);
-        }
-        this.lastIndustrial = data;
-        this.lastQuery = query;
-        this.pendingClarification = null;
-        await this.addToContext('industrial', data.name);
-        await this.save();
-    },
-
-    getBacklinkContext() {
-        return this.previousContext;
-    },
-
-    async setClarification(matches) {
-        this.pendingClarification = matches;
-        await this.save();
-    },
-
-    async addToContext(type, value) {
-        this.conversationContext.push({ type, value, timestamp: Date.now() });
-        if (this.conversationContext.length > 10) this.conversationContext.shift();
-        await this.save();
-    },
-
-    getContext() {
-        if (this.pendingClarification) return { type: 'clarification', data: this.pendingClarification };
-        if (this.lastIndustrial) return { type: 'industrial', data: this.lastIndustrial };
-        if (this.lastActivity) return { type: 'activity', data: this.lastActivity };
-        return null;
-    },
-
-    async clear() {
-        this.lastActivity = null;
-        this.lastIndustrial = null;
-        this.previousContext = null;
-        this.lastQuery = null;
-        this.pendingClarification = null;
-        this.conversationContext = [];
-        await this.save();
-    }
-};
+   
 
 // ==================== 🔍 البحث في المناطق الصناعية باستخدام NeuralSearch ====================
 function searchIndustrialZonesWithNeural(query) {
@@ -1885,6 +1782,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
