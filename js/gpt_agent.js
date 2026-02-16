@@ -1089,7 +1089,7 @@ async function processUserQuery(query) {
 
     // جراحة: لا تنفذ فوراً إلا إذا كانت الثقة الدلالية حقيقية (ليست ناتجة عن RRF فقط)
     // وإذا كان المعرف يبدأ بـ decision104، نتأكد من إرساله للمحرك المتخصص دون "تنظيف"
-    if (vectorMatch && (vectorConfidence > 0.85 || vectorMatch.id.includes('decision104'))) {
+    if (vectorMatch && (vectorConfidence > 0.70 || vectorMatch.id.includes('decision104'))) {
         console.log("🎯 استخراج مباشر من قاعدة البيانات بالمعرف:", vectorMatch.id);
         
         if (vectorTargetDB === 'decision104') {
@@ -1883,6 +1883,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
