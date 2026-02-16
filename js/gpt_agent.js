@@ -1093,47 +1093,43 @@ async function processUserQuery(query) {
         console.log("🎯 استخراج مباشر من قاعدة البيانات بالمعرف:", vectorMatch.id);
         
         if (vectorTargetDB === 'decision104') {
-             // استخراج البيانات مباشرة من قاعدة البيانات
-             // استخراج البيانات من vectorMatch نفسه (يحتوي على original_data)
-             const originalData = vectorMatch.data?.original_data;
+             console.log("⚖️ تم الحسم الدلالي: السؤال يخص القرار 104");
              
-             if (originalData && originalData.sub_activity) {
-                 const activityName = originalData.sub_activity;
-                 const sector = originalData.sector_type === 'القطاع أ' ? 'A' : 'B';
-                 
-                 console.log(`✅ تم استخراج النشاط من المحرك الدلالي: ${activityName}`);
-                 
-                 // بناء كائن النشاط بنفس البنية المتوقعة
+             // 1. استخراج البيانات من المتجه
+             const originalData = vectorMatch.data?.original_data;
+
+             // 2. [الجراحة العلمية]: 
+             // إذا كانت الثقة "فائقة" (> 0.90) فهذا يعني أن المستخدم يسأل عن نشاط محدد جداً (اسم النشاط بالكامل)
+             // في هذه الحالة فقط نعرض النشاط الفردي.
+             if (vectorConfidence > 0.90 && originalData && originalData.sub_activity) {
+                 console.log(`✅ ثقة فائقة: عرض نشاط فردي: ${originalData.sub_activity}`);
                  const itemData = {
-                     activity: activityName,
+                     activity: originalData.sub_activity,
                      mainSector: originalData.sector,
                      subSector: originalData.main_activity,
-                     sector: sector
+                     sector: originalData.sector_type === 'القطاع أ' ? 'A' : 'B'
                  };
-                 
-                 // حفظ في الذاكرة
                  AgentMemory.setDecisionActivity(itemData, query);
-                 
-                 // عرض النتيجة باستخدام الدالة الصحيحة
-                 return formatSingleActivityInDecision104WithIncentives(
-                     query,
-                     itemData,
-                     'both'
-                 );
-                 
-             } else {
-                 console.warn(`⚠️ لم يتم العثور على البيانات في vectorMatch - استخدام البحث النصي`);
-                 // الاستمرار للبحث النصي كخطة بديلة
+                 return formatSingleActivityInDecision104WithIncentives(query, itemData, 'both');
+             } 
+             
+             // 3. [الحل العلمي للذكاء]:
+             // في حالات البحث العام (مثل: برامج الكمبيوتر) نترك المهمة لمحرك القرار 104 المتخصص
+             // لأنه الأقدر على استخراج "كل" الأنشطة المرتبطة وعرضها بشكل شامل (الـ 23 نشاط)
+             else {
+                 console.log("🔍 بحث دلالي واسع: تحويل الاستعلام لمحرك القرار 104 الشامل");
                  return handleDecision104Query(query, questionType);
              }
+
         } else if (vectorTargetDB === 'activities') {
+            // [كما هي]
             const act = masterActivityDB.find(a => a.value === vectorMatch.id);
             if (act) { await AgentMemory.setActivity(act, query); return formatActivityResponse(act, questionType); }
         } else if (vectorTargetDB === 'areas') {
+            // [كما هي]
             const area = industrialAreasData.find(a => a.name === vectorMatch.id);
             if (area) { await AgentMemory.setIndustrial(area, query); return formatIndustrialResponse(area); }
         }
- }
    
 
      // ب. [التوجيه الدلالي الذكي] تنفيذ بناءً على النية المصنفة
@@ -1887,6 +1883,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
