@@ -89,10 +89,10 @@ class HybridSearchEngine {
 
             // 🔧 تطبيع التوقيعات الدلالية
             this.intentSignatures = {
-                activities: await this.embed('أنشطة صناعية تراخيص تشغيل متطلبات'),
-                areas: await this.embed('مناطق صناعية مواقع جغرافية'),
-                decision104: await this.embed('إعفاءات ضريبية حوافز استثمارية قرار 104')
-            };
+                   activities: await this.embed('ماهي متطلبات وتراخيص ممارسة النشاط والجهات المصدرة للرخص والملاحظات الفنية للمعاينة'),
+                   areas: await this.embed('مواقع جغرافية للمناطق الصناعية والمساحات والتبعية والجهات المشرفة على الأرض'),
+                   decision104: await this.embed('الاستفادة من الحوافز القانونية والإعفاءات الضريبية والمزايا الاستثمارية وتصنيف القطاعات أ و ب')
+                  };
 
             this.isReady = true;
             console.log("✅ E5 Hybrid Search Engine ready!");
@@ -189,45 +189,71 @@ class HybridSearchEngine {
         return enhancedQuery;
     }
 
+    
     /**
-     * 🎯 تصنيف النية - الآن يعتمد بشكل أساسي على المحرك الدلالي
-     * regex فقط للحالات الواضحة جداً
+ * 🎯 تصنيف النية المطور - Hybrid Semantic Intent Classifier v2.0
+ * يعتمد على التحليل الدلالي المتقدم مع ميزة "الترجيح القانوني السيادي"
+ */
+async classifyIntent(query, queryVector) {
+    const q = this.normalizeArabicText(query);
+    
+    // 1️⃣ [المسار الصريح - Explicit Routing]
+    // الحالات التي لا تحتمل التأويل (أكواد، وحدات قياس، ذكر القرار بالاسم)
+    if (q.match(/قرار\s*104/)) return ['decision104']; 
+    if (q.match(/(فدان|متر|كيلو|مساحه|موقع|احداثيات)/)) return ['areas'];
+    if (q.match(/(كود|رمز|ايسيك|isic)/)) return ['activities'];
+    
+    // 2️⃣ [الحساب الدلالي - Semantic Scoring]
+    const scores = [];
+    for (const [dbName, signature] of Object.entries(this.intentSignatures)) {
+        const score = this.similarity(signature, queryVector);
+        scores.push({ database: dbName, confidence: score });
+    }
+    
+    // ترتيب النتائج حسب قوة التطابق الدلالي
+    scores.sort((a, b) => b.confidence - a.confidence);
+
+    console.log("📊 Intent Scores (Semantic):", scores.map(s => 
+        `${s.database}: ${Math.round(s.confidence * 100)}%`
+    ).join(' | '));
+
+    // استخراج القيم للمقارنة العلمية
+    const decisionMatch = scores.find(s => s.database === 'decision104');
+    const activityMatch = scores.find(s => s.database === 'activities');
+    const areaMatch = scores.find(s => s.database === 'areas');
+
+    // 3️⃣ [منطق الترجيح العلمي - Scientific Priority Logic]
+    
+    /**
+     * القاعدة: "النية القانونية تطغى على الكيان التقني"
+     * إذا سجل القرار 104 ثقة أعلى من العتبة الحرجة (0.28)، فهذا يعني أن المتجه 
+     * يحتوي على "صبغة استثمارية/مالية" واضحة. في هذه الحالة، حتى لو كان 
+     * تطابق اسم النشاط مع قاعدة الأنشطة أعلى (بسبب تكرار المسمى)، 
+     * فإن نية المستخدم هي الاستعلام عن الميزة (Incentive) وليس عن إجراءات الترخيص.
      */
-    async classifyIntent(query, queryVector) {
-        const q = this.normalizeArabicText(query);
-        
-        // Hard keyword routing - فقط للحالات الواضحة جداً
-        // 🔧 تقليل الاعتماد على regex - فقط للكلمات الفريدة
-        if (q.match(/قرار\s*104/)) return ['decision104'];  // فقط "قرار 104" المحدد
-        if (q.match(/(فدان|متر|كيلو)/)) return ['areas'];   // فقط وحدات القياس
-        if (q.match(/(كود|رمز)/)) return ['activities'];      // فقط الكود والرمز
-        
-        // 🔧 الاعتماد الأساسي على المحرك الدلالي
-        const scores = [];
-        for (const [dbName, signature] of Object.entries(this.intentSignatures)) {
-            const score = this.similarity(signature, queryVector);
-            scores.push({ database: dbName, confidence: score });
-        }
-        scores.sort((a, b) => b.confidence - a.confidence);
+    if (decisionMatch && decisionMatch.confidence > 0.28) {
+        // إذا كان القرار 104 قريباً من الأنشطة أو يتفوق عليها، فهو المسار الأول حتماً
+        console.log(`⚖️ ترجيح دلالي: اكتشاف نية قانونية/استثمارية بقوة ${Math.round(decisionMatch.confidence * 100)}%`);
+        return ['decision104', 'activities'];
+    }
 
-        console.log("📊 Intent Scores:", scores.map(s => 
-            `${s.database}: ${Math.round(s.confidence * 100)}%`
-        ).join(' | '));
-
-        // 🔧 خفض العتبة إلى 0.30 لزيادة الثقة في المحرك الدلالي
-        if (scores[0].confidence > 0.30) {
-            console.log(`✅ Semantic routing to [${scores[0].database}] with ${Math.round(scores[0].confidence * 100)}% confidence`);
-            return [scores[0].database];
-        }
+    // 4️⃣ [التوجيه بناءً على الثقة العالية]
+    if (scores[0].confidence > this.intentThreshold) { // 0.30
+        console.log(`✅ Semantic routing to [${scores[0].database}]`);
         
-        // إذا كانت الفروق صغيرة، ابحث في القاعدتين الأعلى
-        if (scores[0].confidence - scores[1].confidence < 0.10) {
-            console.log(`⚖️ Close scores, searching top 2: [${scores[0].database}, ${scores[1].database}]`);
+        // إذا كان هناك تقارب شديد بين الأول والثاني (أقل من 0.08 فرق)
+        if (scores[1] && (scores[0].confidence - scores[1].confidence < 0.08)) {
             return [scores[0].database, scores[1].database];
         }
         
-        return ['activities', 'decision104', 'areas']; // Fallback
+        return [scores[0].database];
     }
+    
+    // 5️⃣ [صمام الأمان النهائي - Fallback]
+    // إذا كانت النتائج ضعيفة دلالياً، نبحث في كل المسارات بترتيب احتمالي
+    console.log("⚠️ ثقة دلالية منخفضة، استخدام البحث الشامل");
+    return ['activities', 'decision104', 'areas'];
+}
 
     rerankRRF(vectorResults, keywordResults, k = 60) {
         const scores = new Map();
@@ -395,3 +421,4 @@ class HybridSearchEngine {
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
+
