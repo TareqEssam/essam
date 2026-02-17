@@ -316,19 +316,23 @@ if (vectorActivityName && significantTerms.length === 0) {
     results = deduplicateResults(results);
 
     // فلترة الكلمات الجوهرية
-    if (significantTerms.length > 0 && results.length > 0) {
+    if (significantTerms.length > 0 && results.length > 1) {
+    // فحص: هل النتائج الأولى متساوية برمجياً؟
+    const topScore = results[0].score || results[0].confidence;
+    const isTie = Math.abs((results[1].score || results[1].confidence) - topScore) < 0.01;
+
+    // إذا كان هناك تساوي، لا تسمح للفلتر بحذف النتائج، فقط قم بترتيبها
+    if (isTie) {
+        console.log("⚖️ جراحياً: منع حذف النتائج المتساوية بواسطة Smart Filter");
+    } else {
         const strictResults = results.filter(r => {
-            const itemText = normalizeArabic(r.item.activity);
+            const itemText = normalizeArabic(r.item.activity || r.activity);
             const matched = significantTerms.filter(term => itemText.includes(term)).length;
             return (matched / significantTerms.length) >= 0.4;
         });
-        if (strictResults.length > 0) {
-            results = strictResults;
-            console.log(`🧹 [Smart Filter] تم تقليص النتائج إلى ${results.length} نتيجة دقيقة.`);
-        } else {
-            console.log("⚠️ [Smart Filter] لم نجد تطابقًا قويًا، نحتفظ بالنتائج الأصلية.");
-        }
+        if (strictResults.length > 0) results = strictResults;
     }
+}
 
     // ترتيب النتائج
     if (results.length > 1 && significantTerms.length > 0) {
@@ -939,4 +943,5 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
+
 
