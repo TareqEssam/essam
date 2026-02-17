@@ -61,6 +61,7 @@ const SemanticBrain = {
     "تابع": ["تبعية", "ولاية", "اشراف", "ادارة", "إدارة", "جهة", "dependency", "authority"],
     "قرار": ["قانون", "لائحة", "تشريع", "decision", "law", "legislation"],
     
+
     // مناطق جغرافية محددة (أمثلة شائعة)
     "قاهرة": ["العاصمة", "cairo"],
     "اسكندرية": ["اسكندريه", "الاسكندرية", "alexandria", "alex"],
@@ -90,6 +91,13 @@ const SemanticBrain = {
     "شمال": ["شمال سيناء", "north sinai"],
     "جنوب": ["جنوب سيناء", "south sinai"]
 };
+
+// ==================== 🌐 إتاحة SemanticBrain و IntentPatterns للمصنف ====================
+if (typeof window !== 'undefined') {
+    window.SemanticBrain = SemanticBrain;
+    window.IntentPatterns = IntentPatterns;
+    console.log("✅ تم إتاحة SemanticBrain و IntentPatterns للاستخدام العالمي");
+}
 
 // ==================== 🎯 أنماط النية الذكية ====================
 const IntentPatterns = {
@@ -1382,7 +1390,6 @@ if (typeof module !== 'undefined' && module.exports) {
         normalizeDecision104
     };
 }
-// إتاحة عالمياً
 // إتاحة عالمياً
 window.NeuralSearch = NeuralSearch;
 window.initializeNeuralSearch = initializeNeuralSearch;
