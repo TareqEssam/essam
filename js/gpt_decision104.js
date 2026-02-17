@@ -243,24 +243,25 @@ function handleDecision104Query(query, questionType) {
 
     // 🧠 استخدام نتيجة المحرك الدلالي مباشرة إذا كانت موجودة وثقتها عالية
     if (window._lastVectorResults && window._lastVectorResults.length > 1) {
-        const tiedFinal = window._lastVectorResults;
-        
-        // تنظيف الذاكرة فوراً
-        window._lastVectorResults = null; 
+    const topScore = window._lastVectorResults[0]?.cosineScore || 0;
+    const tiedResults = window._lastVectorResults.filter(r =>
+        Math.abs((r.cosineScore || 0) - topScore) < 0.01
+    );
+    if (tiedResults.length > 1) {
+        console.log(`🎯 [Vector Tied] ${tiedResults.length} نتائج متساوية - عرضها كاملة`);
+        window._lastVectorResults = null;
         window._lastVectorMatch = null;
-
-        console.log(`⚖️ جراحياً: تم العثور على ${tiedFinal.length} نتائج متساوية تماماً. عرض الكل ومنع الفلترة الإضافية.`);
-        
-        const allActivities = tiedFinal.map(r => ({
-            item: r.data?.original_data || r.data,
-            score: r.cosineScore || r.score,
-            sector: (r.data?.original_data?.sector_type || r.data?.sector_type || '').includes('أ') ? 'A' : 'B',
-            sectorName: r.data?.original_data?.sector_type || r.data?.sector_type || ''
+        const allActivities = tiedResults.map(r => ({
+            item: r.data?.original_data,
+            score: r.cosineScore,
+            sector: r.data?.original_data?.sector_type?.includes('أ') ? 'A' : 'B',
+            sectorName: r.data?.original_data?.sector_type || ''
         }));
-
-        // الخروج الفوري بالعرض الكامل
-        return formatMultipleActivitiesInDecision104WithBothSectorsFixed(activityName, allActivities, 'both');
+        return formatMultipleActivitiesInDecision104WithBothSectorsFixed(
+            activityName, allActivities, 'both'
+        );
     }
+}
 
 if (window._lastVectorMatch && window._lastVectorMatch.cosineScore >= 0.70) {
     const vectorData = window._lastVectorMatch.data?.original_data;
@@ -316,23 +317,19 @@ if (vectorActivityName && significantTerms.length === 0) {
     results = deduplicateResults(results);
 
     // فلترة الكلمات الجوهرية
-    if (significantTerms.length > 0 && results.length > 1) {
-    // فحص: هل النتائج الأولى متساوية برمجياً؟
-    const topScore = results[0].score || results[0].confidence;
-    const isTie = Math.abs((results[1].score || results[1].confidence) - topScore) < 0.01;
-
-    // إذا كان هناك تساوي، لا تسمح للفلتر بحذف النتائج، فقط قم بترتيبها
-    if (isTie) {
-        console.log("⚖️ جراحياً: منع حذف النتائج المتساوية بواسطة Smart Filter");
-    } else {
+    if (significantTerms.length > 0 && results.length > 0) {
         const strictResults = results.filter(r => {
-            const itemText = normalizeArabic(r.item.activity || r.activity);
+            const itemText = normalizeArabic(r.item.activity);
             const matched = significantTerms.filter(term => itemText.includes(term)).length;
             return (matched / significantTerms.length) >= 0.4;
         });
-        if (strictResults.length > 0) results = strictResults;
+        if (strictResults.length > 0) {
+            results = strictResults;
+            console.log(`🧹 [Smart Filter] تم تقليص النتائج إلى ${results.length} نتيجة دقيقة.`);
+        } else {
+            console.log("⚠️ [Smart Filter] لم نجد تطابقًا قويًا، نحتفظ بالنتائج الأصلية.");
+        }
     }
-}
 
     // ترتيب النتائج
     if (results.length > 1 && significantTerms.length > 0) {
@@ -943,5 +940,3 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
-
-
