@@ -945,6 +945,11 @@ async function processUserQuery(query) {
         
         // ب. البحث الدلالي
         console.log("⏳ جاري استشارة الموجه الدلالي (Semantic Routing)...");
+        // انتظار جهوزية المحرك إذا كان لا يزال يتهيأ
+        if (window.hybridEngine && !window.hybridEngine.isReady) {
+            console.log("⏳ انتظار اكتمال تهيئة المحرك...");
+            await window.hybridEngine.initialize();
+        }
         const searchResponse = (window.hybridEngine && window.hybridEngine.isReady) ? await window.hybridEngine.search(query) : null;
         
         // ج. البحث النصي بالتوازي (إن وُجد محرك نصي)
@@ -1824,9 +1829,19 @@ window.initializeGptSystem = async function() {
             if(statusText) statusText.innerText = "فشل تحميل المحرك، يرجى تحديث الصفحة.";
         }
     } else {
-        // تهيئة صامتة (Silent Background Init)
-        if (window.hybridEngine) {
-            window.hybridEngine.initialize().catch(err => console.error("Background Init Failed", err));
+        // تهيئة صامتة مع انتظار الاكتمال
+        if (window.hybridEngine && !window.hybridEngine.isReady) {
+            console.log("⏳ تهيئة خلفية للمحرك الدلالي...");
+            try {
+                await window.hybridEngine.initialize();
+                console.log("✅ المحرك الدلالي جاهز في الخلفية");
+                if (window.AgentMemory && window.hybridEngine.updateContextToken) {
+                    window.hybridEngine.updateContextToken(window.AgentMemory.getContext());
+                }
+            } catch(err) {
+                console.error("Background Init Failed", err);
+                localStorage.removeItem('gpt_model_ready');
+            }
         }
     }
 };
@@ -1836,6 +1851,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
