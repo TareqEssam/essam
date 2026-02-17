@@ -1800,14 +1800,23 @@ window.initializeGptSystem = async function() {
     const progressBar = document.getElementById('onboarding-progress');
     const statusText = document.getElementById('onboarding-status');
 
+    // انتظار جهوزية hybridEngine إذا لم يكن موجوداً بعد
+    if (!window.hybridEngine) {
+        console.log("⏳ انتظار تحميل HybridEngine...");
+        await new Promise(resolve => {
+            window.addEventListener('hybridEngineReady', resolve, { once: true });
+            setTimeout(resolve, 5000); // timeout بعد 5 ثوان كحد أقصى
+        });
+    }
+
     if (!isModelLoaded) {
         if(splash) splash.style.display = 'flex';
         try {
             if (window.hybridEngine) {
-                // بدء التهيئة الفعلية للمحرك الدلالي
+                if(statusText) statusText.innerText = "جاري تحميل المحرك الدلالي...";
+                if(progressBar) progressBar.style.width = '30%';
                 await window.hybridEngine.initialize();
-                
-                // ربط الوعي الدلالي بالذاكرة الحالية فور التحميل
+                if(progressBar) progressBar.style.width = '90%';
                 if (window.AgentMemory && window.hybridEngine.updateContextToken) {
                     window.hybridEngine.updateContextToken(window.AgentMemory.getContext());
                 }
@@ -1851,6 +1860,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
