@@ -239,13 +239,11 @@ async classifyIntent(query, queryVector) {
         }
     }
 
-    // 5️⃣ [أولوية ذكية لـ decision104] - تُطبَّق فقط إذا كان قريباً جداً من القمة
-const topScore = scores[0];
+    // 5️⃣ [منطق الترجيح العلمي - Scientific Priority Logic]
 const decisionMatch = scores.find(s => s.database === 'decision104');
-
-if (decisionMatch && (topScore.confidence - decisionMatch.confidence) < 0.06) { // فرق أقل من 6%
-    console.log(`⚖️ أولوية ذكية: decision104 قريب جداً من القمة (فرق ${Math.round((topScore.confidence - decisionMatch.confidence)*100)}%)`);
-    return ['decision104', topScore.database]; // decision104 أولاً، ثم الأعلى الآخر
+if (decisionMatch && decisionMatch.confidence > 0.28) {
+    console.log(`⚖️ ترجيح دلالي: اكتشاف نية قانونية/استثمارية بقوة ${Math.round(decisionMatch.confidence * 100)}%`);
+    return ['decision104', 'activities'];
 }
 
     // 6️⃣ [التوجيه بناءً على الثقة العالية]
@@ -503,6 +501,7 @@ if (decisionMatch && (topScore.confidence - decisionMatch.confidence) < 0.06) { 
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
+
 
 
 
