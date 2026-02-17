@@ -399,7 +399,16 @@ async classifyIntent(query, queryVector) {
         }
         
         const sortedResults = allResults.sort((a, b) => b.score - a.score);
-        const finalResults = sortedResults.slice(0, topK);
+
+         // إذا كانت النتائج العليا متساوية → عرضها جميعاً
+          const topScore = sortedResults[0]?.cosineScore || 0;
+          const tiedResults = sortedResults.filter(r => 
+          Math.abs((r.cosineScore || 0) - topScore) < 0.01
+          );
+
+const finalResults = tiedResults.length > 1 && tiedResults.length <= 8
+    ? tiedResults  // عرض كل المتساويات
+    : sortedResults.slice(0, topK);
         
         console.log(`✅ Found ${finalResults.length} results (from ${allResults.length})`);
 finalResults.forEach((r, i) => {
@@ -429,6 +438,7 @@ finalResults.forEach((r, i) => {
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
+
 
 
 
