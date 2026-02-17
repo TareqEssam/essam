@@ -977,10 +977,17 @@ async function processUserQuery(query) {
             );
             
             if (rerankedResults && rerankedResults.length > 0) {
-                vectorMatch = rerankedResults[0];
-                vectorTargetDB = vectorMatch.dbName || searchResponse.intent;
-                 // استخدام cosineScore الحقيقي وليس finalScore المركب
-                vectorConfidence = vectorMatch.cosineScore || vectorMatch.data?.score || searchResponse.confidence;
+               vectorMatch = rerankedResults[0];
+               vectorTargetDB = vectorMatch.dbName || searchResponse.intent;
+               vectorConfidence = vectorMatch.cosineScore || vectorMatch.data?.score || searchResponse.confidence;
+
+              // حفظ كل النتائج المتساوية مباشرة من searchResponse
+              const topCosine = searchResponse.results?.[0]?.cosineScore || 0;
+              const tiedFromSearch = (searchResponse.results || []).filter(r =>
+              Math.abs((r.cosineScore || 0) - topCosine) < 0.01
+              );
+                vectorMatch._allResults = tiedFromSearch.length > 1 ? tiedFromSearch : null;
+                console.log(`📦 النتائج المتساوية: ${tiedFromSearch.length}`);
                 console.log(`✨ القرار النهائي بعد Reranking: القاعدة [${vectorTargetDB}] | النقاط [${vectorConfidence.toFixed(3)}]`);
             }
         } else if (searchResponse && searchResponse.topMatch) {
@@ -1868,6 +1875,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
