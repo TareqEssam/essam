@@ -1085,11 +1085,12 @@ async function processUserQuery(query) {
     
     switch (vectorTargetDB) {
         case 'decision104':
-            console.log("⚖️ مسار القرار 104 المتخصص");
-            // استخدام النص الأصلي للبحث
-            const res104 = await handleDecision104Query(originalText, questionType);
-            if (res104 && !res104.includes('لم أجد معلومات')) return res104;
-            break;
+         console.log("⚖️ مسار القرار 104 المتخصص");
+             window._lastVectorMatch = vectorMatch;
+             window._lastVectorResults = vectorMatch?._allResults || null;
+             const res104 = await handleDecision104Query(originalText, questionType);
+             if (res104 && !res104.includes('لم أجد معلومات')) return res104;
+                break;
 
         case 'activities':
             console.log("📋 مسار التراخيص والأنشطة (الدلالي المباشر)");
@@ -1866,6 +1867,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
