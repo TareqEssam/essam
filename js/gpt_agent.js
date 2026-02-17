@@ -935,6 +935,7 @@ async function processUserQuery(query) {
     let vectorTargetDB = null;
     let vectorConfidence = 0;
     let keywordClassification = null;
+    let searchResponse = null;
 
     try {
         // أ. التصنيف المسبق بالمصنف الكلماتي
@@ -1865,6 +1866,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
