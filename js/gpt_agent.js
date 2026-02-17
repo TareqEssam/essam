@@ -1052,11 +1052,12 @@ async function processUserQuery(query) {
         // فحص آمن جداً: نأخذ النتائج من searchResponse إن وجد، وإلا نستخدم مصفوفة تحتوي على النتيجة الأولى فقط
         const safeResultsArray = (searchResponse && searchResponse.results) ? searchResponse.results : [vectorMatch];
         
-        const allTiedResults = safeResultsArray.filter(r => 
-            Math.abs((r.cosineScore || r.score || 0) - topScore) < 0.005 // رفع نسبة التسامح قليلاً لضمان التقاط الـ 5 نتائج
-        );
+        // نستخدم المصفوفة التي تم حسابها في سطر 990 مباشرة دون إعادة فلترة
+window._lastVectorResults = vectorMatch._allResults && vectorMatch._allResults.length > 1 ? vectorMatch._allResults : null;
+window._lastVectorMatch = vectorMatch;
 
-        window._lastVectorMatch = vectorMatch;
+console.log(`📦 جراحياً: تم تمرير ${window._lastVectorResults ? window._lastVectorResults.length : 1} نتائج للقرار 104`);
+return handleDecision104Query(query, questionType);
         // نمرر النتائج المتساوية فقط إذا كانت أكثر من واحدة
         window._lastVectorResults = allTiedResults.length > 1 ? allTiedResults : null;
         
@@ -1891,6 +1892,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
