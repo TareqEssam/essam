@@ -25,6 +25,9 @@ class HybridSearchEngine {
         
         this.intentThreshold = 0.28;
         this.multiIntentThreshold = 0.24;
+        this.bm25K1 = 1.5;
+        this.bm25B  = 0.75;
+        this.bm25Data = {}; // يخزن { idf, avgdl } لكل قاعدة
     }
 
     /**
@@ -80,6 +83,8 @@ class HybridSearchEngine {
             this.databases.activities = this.normalizeData(fullData.activities);
             this.databases.areas = this.normalizeData(fullData.areas);
             this.databases.decision104 = this.normalizeData(fullData.decision104);
+            // بناء BM25 index لكل قاعدة مرة واحدة بعد التحميل
+            ['activities', 'areas', 'decision104'].forEach(db => this.buildBM25Index(db));
 
             console.log(`✅ Loaded: activities(${this.databases.activities.length}), areas(${this.databases.areas.length}), decision104(${this.databases.decision104.length})`);
 
@@ -357,6 +362,66 @@ async classifyIntent(query, queryVector) {
         return matches / tokens.length;
     }
 
+    buildBM25Index(dbName) {
+        const db = this.databases[dbName];
+        if (!db || db.length === 0) return;
+        const N = db.length;
+        const df = {};
+        let totalLength = 0;
+
+        db.forEach(item => {
+            const text = this.normalizeArabicText(
+                (item.original_data?.النشاط_المحدد || '') + ' ' +
+                (item.original_data?.النشاط || '') + ' ' +
+                (item.original_data?.activity || '') + ' ' +
+                (item.text || '')
+            );
+            const tokens = text.split(/\s+/).filter(t => t.length > 1);
+            totalLength += tokens.length;
+            const uniqueTokens = new Set(tokens);
+            uniqueTokens.forEach(token => { df[token] = (df[token] || 0) + 1; });
+        });
+
+        const idf = {};
+        for (const [term, freq] of Object.entries(df)) {
+            idf[term] = Math.log((N - freq + 0.5) / (freq + 0.5) + 1);
+        }
+
+        this.bm25Data[dbName] = { idf, avgdl: totalLength / N };
+    }
+
+    bm25Score(query, item, dbName) {
+        const data = this.bm25Data[dbName];
+        if (!data) return 0;
+        const { idf, avgdl } = data;
+
+        const docText = this.normalizeArabicText(
+            (item.original_data?.النشاط_المحدد || '') + ' ' +
+            (item.original_data?.النشاط || '') + ' ' +
+            (item.original_data?.activity || '') + ' ' +
+            (item.text || '')
+        );
+        const docTokens = docText.split(/\s+/).filter(t => t.length > 1);
+        const docLen = docTokens.length;
+
+        const tf = {};
+        docTokens.forEach(t => { tf[t] = (tf[t] || 0) + 1; });
+
+        const queryTokens = this.normalizeArabicText(query)
+            .split(/\s+/).filter(t => t.length > 1);
+
+        let score = 0;
+        for (const token of queryTokens) {
+            const termIdf = idf[token] || 0;
+            if (termIdf === 0) continue;
+            const freq = tf[token] || 0;
+            const numerator   = freq * (this.bm25K1 + 1);
+            const denominator = freq + this.bm25K1 * (1 - this.bm25B + this.bm25B * (docLen / avgdl));
+            score += termIdf * (numerator / denominator);
+        }
+        return score;
+    }
+    
     async search(query, options = {}) {
         if (!this.isReady) await this.initialize();
         
@@ -385,7 +450,7 @@ async classifyIntent(query, queryVector) {
             const keywordResults = db
                 .map(item => ({
                     id: item.id,
-                    score: this.keywordScore(refinedQuery, item),
+                    score: this.bm25Score(refinedQuery, item, dbName),
                     data: item
                 }))
                 .filter(r => r.score > 0)
@@ -437,6 +502,7 @@ async classifyIntent(query, queryVector) {
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
+
 
 
 
