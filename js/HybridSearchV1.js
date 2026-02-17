@@ -417,6 +417,11 @@ finalResults.forEach((r, i) => {
         
         const topCosineScore = finalResults[0]?.cosineScore || 0;
 
+        
+       // حفظ كل النتائج في الـ topMatch لاستخدامها لاحقاً
+       const topResult = finalResults[0];
+       if (topResult) topResult._allResults = finalResults;
+
         return {
             query: query,
             intent: finalResults[0]?.dbName,
@@ -438,6 +443,7 @@ finalResults.forEach((r, i) => {
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
+
 
 
 
