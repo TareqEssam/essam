@@ -244,12 +244,16 @@ function handleDecision104Query(query, questionType) {
     // تعريف الكلمات الجوهرية
     const commonVerbs = [
         'تصنيع', 'انتاج', 'إنتاج', 'تجميع', 'اقامة', 'إقامة', 'تشغيل', 'تجهيز', 'توريد',
-        'مشروع', 'نشاط', 'صناعة', 'خدمات', 'مركز', 'وحدات', 'مكونات', 'محطات', 'توليد',
-        'وارد', 'وارده', 'واردة', 'مشمول', 'موجود','مدرج', 'موجودة', 'مدرج', 'مدرجة', 'مذكور'
+        'مشروع', 'مشاريع', 'نشاط', 'صناعة', 'خدمات', 'مركز', 'وحدات', 'مكونات', 'محطات', 'توليد',
+        'وارد', 'وارده', 'واردة', 'مشمول', 'موجود', 'مدرج', 'موجودة', 'مدرجة', 'مذكور',
+        // كلمات السؤال التي ليست اسم نشاط
+        'تحصل', 'يحصل', 'احصل', 'علي', 'على', 'هل', 'هو', 'هي', 'في', 'من', 'عن',
+        'اعفاءات', 'اعفاء', 'حوافز', 'حافز', 'مزايا', 'مزيه', 'فوائد',
+        'يستفيد', 'تستفيد', 'استفاده', 'مشمولة', 'مشموله', 'موجوده'
     ];
     const queryTerms = activityName.split(/\s+/).map(w => normalizeArabic(w));
     const significantTerms = queryTerms.filter(w => !commonVerbs.includes(w) && w.length > 2);
-    console.log(`🧠 [Smart Filter] الكلمات الجوهرية: [${significantTerms.join(', ')}]`);
+    console.log(`🧠 [Smart Filter] الكلمات الجوهرية بعد التنقية: [${significantTerms.join(', ')}]`);
 
     // تحديد نطاق البحث
     const scopeDetection = detectSearchScopeEnhanced(q);
@@ -275,7 +279,7 @@ function handleDecision104Query(query, questionType) {
         const strictResults = results.filter(r => {
             const itemText = normalizeArabic(r.item.activity);
             const matched = significantTerms.filter(term => itemText.includes(term)).length;
-            return (matched / significantTerms.length) >= 0.7;
+            return (matched / significantTerms.length) >= 0.4;
         });
         if (strictResults.length > 0) {
             results = strictResults;
@@ -894,3 +898,4 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
+
