@@ -1036,6 +1036,7 @@ async function processUserQuery(query) {
     console.log("⚖️ توجيه ذكي لمسار القرار 104");
     // تمرير بيانات المتجه للقرار 104 لاستخدامها مباشرة
     window._lastVectorMatch = vectorMatch;
+    window._lastVectorResults = searchResponse?.results || null;
     return handleDecision104Query(query, questionType);
      
              
@@ -1864,6 +1865,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
