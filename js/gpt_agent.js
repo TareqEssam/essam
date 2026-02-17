@@ -1860,7 +1860,8 @@ window.initializeGptSystem = async function() {
 window.addEventListener('load', window.initializeGptSystem);
 
 
-} // نهاية الملف gpt_agent.js
+ // نهاية الملف gpt_agent.js
+
 
 
 
