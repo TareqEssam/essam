@@ -1062,7 +1062,7 @@ async function processUserQuery(query) {
         
         console.log(`📦 جراحياً: تم تمرير ${allTiedResults.length} نتائج متساوية للقرار 104`);
         return handleDecision104Query(query, questionType);
-       
+       }
      
              
              // 1. استخراج البيانات من المتجه
@@ -1891,6 +1891,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
