@@ -940,8 +940,3 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
-
-
-
-
-
