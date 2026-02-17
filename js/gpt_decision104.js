@@ -242,17 +242,38 @@ function handleDecision104Query(query, questionType) {
     }
 
     // 🧠 استخدام نتيجة المحرك الدلالي مباشرة إذا كانت موجودة وثقتها عالية
-    if (window._lastVectorMatch && window._lastVectorMatch.cosineScore >= 0.70) {
-        const vectorData = window._lastVectorMatch.data?.original_data;
-        const vectorActivity = vectorData?.النشاط_المحدد || 
-                               vectorData?.activity || 
-                               vectorData?.النشاط || null;
-        if (vectorActivity) {
-            console.log(`🎯 [Vector Direct] استخدام نتيجة المتجه مباشرة: ${vectorActivity} (${Math.round(window._lastVectorMatch.cosineScore * 100)}%)`);
-            window._lastVectorMatch = null; // تنظيف بعد الاستخدام
-            activityName = vectorActivity;  // استبدال كلمات السؤال بالنشاط الحقيقي
-        }
+    if (window._lastVectorResults && window._lastVectorResults.length > 1) {
+    const topScore = window._lastVectorResults[0]?.cosineScore || 0;
+    const tiedResults = window._lastVectorResults.filter(r =>
+        Math.abs((r.cosineScore || 0) - topScore) < 0.01
+    );
+    if (tiedResults.length > 1) {
+        console.log(`🎯 [Vector Tied] ${tiedResults.length} نتائج متساوية - عرضها كاملة`);
+        window._lastVectorResults = null;
+        window._lastVectorMatch = null;
+        const allActivities = tiedResults.map(r => ({
+            item: r.data?.original_data,
+            score: r.cosineScore,
+            sector: r.data?.original_data?.sector_type?.includes('أ') ? 'A' : 'B',
+            sectorName: r.data?.original_data?.sector_type || ''
+        }));
+        return formatMultipleActivitiesInDecision104WithBothSectorsFixed(
+            activityName, allActivities, 'both'
+        );
     }
+}
+
+if (window._lastVectorMatch && window._lastVectorMatch.cosineScore >= 0.70) {
+    const vectorData = window._lastVectorMatch.data?.original_data;
+    const vectorActivity = vectorData?.النشاط_المحدد || 
+                           vectorData?.activity || 
+                           vectorData?.النشاط || null;
+    if (vectorActivity) {
+        console.log(`🎯 [Vector Direct] استخدام نتيجة المتجه مباشرة: ${vectorActivity}`);
+        window._lastVectorMatch = null;
+        activityName = vectorActivity;
+    }
+}
 
     // تعريف الكلمات الجوهرية
     const commonVerbs = [
@@ -919,6 +940,7 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
+
 
 
 
