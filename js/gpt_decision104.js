@@ -241,6 +241,19 @@ function handleDecision104Query(query, questionType) {
         return formatDecision104Options();
     }
 
+    // 🧠 استخدام نتيجة المحرك الدلالي مباشرة إذا كانت موجودة وثقتها عالية
+    if (window._lastVectorMatch && window._lastVectorMatch.cosineScore >= 0.70) {
+        const vectorData = window._lastVectorMatch.data?.original_data;
+        const vectorActivity = vectorData?.النشاط_المحدد || 
+                               vectorData?.activity || 
+                               vectorData?.النشاط || null;
+        if (vectorActivity) {
+            console.log(`🎯 [Vector Direct] استخدام نتيجة المتجه مباشرة: ${vectorActivity} (${Math.round(window._lastVectorMatch.cosineScore * 100)}%)`);
+            window._lastVectorMatch = null; // تنظيف بعد الاستخدام
+            activityName = vectorActivity;  // استبدال كلمات السؤال بالنشاط الحقيقي
+        }
+    }
+
     // تعريف الكلمات الجوهرية
     const commonVerbs = [
         'تصنيع', 'انتاج', 'إنتاج', 'تجميع', 'اقامة', 'إقامة', 'تشغيل', 'تجهيز', 'توريد',
@@ -906,5 +919,6 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
+
 
 
