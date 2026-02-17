@@ -402,10 +402,9 @@ async classifyIntent(query, queryVector) {
         const finalResults = sortedResults.slice(0, topK);
         
         console.log(`✅ Found ${finalResults.length} results (from ${allResults.length})`);
-        if (finalResults.length > 0) {
-            const top = finalResults[0];
-            console.log(`🏆 ${top.id} - Cosine: ${Math.round((top.cosineScore || 0) * 100)}% | RRF: ${Math.round(top.score * 100)}% [${top.dbName}]`);
-        }
+finalResults.forEach((r, i) => {
+    console.log(`${i === 0 ? '🏆' : `${i+1}.`} ${r.id} | النشاط: ${r.data?.original_data?.النشاط_المحدد || r.data?.text} | Cosine: ${Math.round((r.cosineScore || 0) * 100)}% [${r.dbName}]`);
+});
         
         const topCosineScore = finalResults[0]?.cosineScore || 0;
 
@@ -430,5 +429,6 @@ async classifyIntent(query, queryVector) {
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
+
 
 
