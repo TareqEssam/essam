@@ -951,12 +951,10 @@ async function processUserQuery(query) {
         let keywordResults = null;
         if (window.NeuralSearch && typeof window.NeuralSearch === 'function') {
             try {
-                if (typeof window.NeuralSearch?.search === 'function') {
-                   keywordResults = await window.NeuralSearch.search(query);
-                   } else if (typeof window.NeuralSearch === 'function') {
-                   const ns = window.NeuralSearch(query);
-                   keywordResults = ns?.results || null;
-                  }
+                if (window.NeuralSearch && typeof window.NeuralSearch.search === 'function') {
+                const nsResult = await window.NeuralSearch.search(query);
+                keywordResults = nsResult?.results || nsResult || null;
+                 }             
                 console.log("🔤 نتائج المحرك النصي:", keywordResults?.length || 0);
             } catch (e) {
                 console.warn("⚠️ المحرك النصي غير متاح:", e.message);
@@ -1821,4 +1819,5 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
