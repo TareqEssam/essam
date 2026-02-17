@@ -1042,15 +1042,14 @@ async function processUserQuery(query) {
      
      if (vectorTargetDB === 'decision104' || vectorMatch.id.toLowerCase().includes('dec')) {
     console.log("⚖️ توجيه ذكي لمسار القرار 104");
-     // حفظ النتائج المتساوية مباشرة من searchResponse وليس من vectorMatch
-      const topCosine2 = searchResponse?.results?.[0]?.cosineScore || 0;
-      const tiedFinal = (searchResponse?.results || []).filter(r =>
-      Math.abs((r.cosineScore || 0) - topCosine2) < 0.01
-          );
-    // تمرير بيانات المتجه للقرار 104 لاستخدامها مباشرة
+    const topCosine2 = searchResponse?.results?.[0]?.cosineScore || 0;
+    const tiedFinal = (searchResponse?.results || []).filter(r =>
+        Math.abs((r.cosineScore || 0) - topCosine2) < 0.01
+    );
+         // تمرير بيانات المتجه للقرار 104 لاستخدامها مباشرة    
     window._lastVectorMatch = vectorMatch;
-    window._lastVectorResults = searchResponse?.results || null;
-    console.log(`📦 النتائج المتساوية المُمررة: ${window._lastVectorResults?.length || 0}`);     
+    window._lastVectorResults = tiedFinal.length > 1 ? tiedFinal : null;
+    console.log(`📦 النتائج المتساوية المُمررة: ${window._lastVectorResults?.length || 0}`);
     return handleDecision104Query(query, questionType);
      
              
@@ -1880,6 +1879,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
