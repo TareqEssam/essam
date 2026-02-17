@@ -243,25 +243,24 @@ function handleDecision104Query(query, questionType) {
 
     // 🧠 استخدام نتيجة المحرك الدلالي مباشرة إذا كانت موجودة وثقتها عالية
     if (window._lastVectorResults && window._lastVectorResults.length > 1) {
-    const topScore = window._lastVectorResults[0]?.cosineScore || 0;
-    const tiedResults = window._lastVectorResults.filter(r =>
-        Math.abs((r.cosineScore || 0) - topScore) < 0.01
-    );
-    if (tiedResults.length > 1) {
-        console.log(`🎯 [Vector Tied] ${tiedResults.length} نتائج متساوية - عرضها كاملة`);
-        window._lastVectorResults = null;
+        const tiedFinal = window._lastVectorResults;
+        
+        // تنظيف الذاكرة فوراً
+        window._lastVectorResults = null; 
         window._lastVectorMatch = null;
-        const allActivities = tiedResults.map(r => ({
-            item: r.data?.original_data,
-            score: r.cosineScore,
-            sector: r.data?.original_data?.sector_type?.includes('أ') ? 'A' : 'B',
-            sectorName: r.data?.original_data?.sector_type || ''
+
+        console.log(`⚖️ جراحياً: تم العثور على ${tiedFinal.length} نتائج متساوية تماماً. عرض الكل ومنع الفلترة الإضافية.`);
+        
+        const allActivities = tiedFinal.map(r => ({
+            item: r.data?.original_data || r.data,
+            score: r.cosineScore || r.score,
+            sector: (r.data?.original_data?.sector_type || r.data?.sector_type || '').includes('أ') ? 'A' : 'B',
+            sectorName: r.data?.original_data?.sector_type || r.data?.sector_type || ''
         }));
-        return formatMultipleActivitiesInDecision104WithBothSectorsFixed(
-            activityName, allActivities, 'both'
-        );
+
+        // الخروج الفوري بالعرض الكامل
+        return formatMultipleActivitiesInDecision104WithBothSectorsFixed(activityName, allActivities, 'both');
     }
-}
 
 if (window._lastVectorMatch && window._lastVectorMatch.cosineScore >= 0.70) {
     const vectorData = window._lastVectorMatch.data?.original_data;
@@ -940,3 +939,4 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
+
