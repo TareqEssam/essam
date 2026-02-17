@@ -242,25 +242,37 @@ function handleDecision104Query(query, questionType) {
     }
 
     // 🧠 استخدام نتيجة المحرك الدلالي مباشرة إذا كانت موجودة وثقتها عالية
-    if (window._lastVectorResults && window._lastVectorResults.length > 1) {
-    const topScore = window._lastVectorResults[0]?.cosineScore || 0;
-    const tiedResults = window._lastVectorResults.filter(r =>
-        Math.abs((r.cosineScore || 0) - topScore) < 0.01
-    );
-    if (tiedResults.length > 1) {
-        console.log(`🎯 [Vector Tied] ${tiedResults.length} نتائج متساوية - عرضها كاملة`);
-        window._lastVectorResults = null;
-        window._lastVectorMatch = null;
-        const allActivities = tiedResults.map(r => ({
-            item: r.data?.original_data,
+if (window._lastVectorResults && window._lastVectorResults.length > 1) {
+    console.log(`🎯 [Vector Tied] ${window._lastVectorResults.length} نتائج متساوية - عرضها كاملة`);
+    const tiedResults = window._lastVectorResults;
+    window._lastVectorResults = null;
+    window._lastVectorMatch = null;
+    const allActivities = tiedResults.map(r => {
+        const od = r.data?.original_data;
+        // استخراج القطاع من المعرف أو من حقل النوع الصحيح في original_data
+        const sectorRaw = od?.القطاع || od?.sector || od?.sector_type || r.id || '';
+        const sector = (sectorRaw + '').includes('أ') || (sectorRaw + '').includes('a') || (r.id + '').toLowerCase().includes('_أ_') || (r.id + '').includes('القطاع أ') ? 'A' : 'B';
+        return {
+            item: {
+                activity: od?.النشاط_المحدد || od?.activity || od?.النشاط || '',
+                mainSector: od?.القطاع_الرئيسي || od?.main_activity || od?.mainSector || '',
+                subSector: od?.القطاع_الفرعي || od?.sub_activity || od?.subSector || '',
+                sector: sector
+            },
             score: r.cosineScore,
-            sector: r.data?.original_data?.sector_type?.includes('أ') ? 'A' : 'B',
-            sectorName: r.data?.original_data?.sector_type || ''
-        }));
-        return formatMultipleActivitiesInDecision104WithBothSectorsFixed(
-            activityName, allActivities, 'both'
-        );
+            sector: sector,
+            sectorName: sectorRaw
+        };
+    }).filter(a => a.item.activity); // إزالة النتائج الفارغة
+    
+    if (allActivities.length === 1) {
+        // نتيجة واحدة فعلياً بعد التصفية → عرض مباشر
+        AgentMemory.setDecisionActivity(allActivities[0].item, activityName);
+        return formatSingleActivityInDecision104WithIncentives(activityName, allActivities[0].item, allActivities[0].sector);
     }
+    return formatMultipleActivitiesInDecision104WithBothSectorsFixed(
+        activityName, allActivities, 'both'
+    );
 }
 
 if (window._lastVectorMatch && window._lastVectorMatch.cosineScore >= 0.70) {
@@ -940,3 +952,4 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
+
