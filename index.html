@@ -5013,6 +5013,11 @@ input.bg-success {
 <script src="js/IntentClassifier.js"></script>
 <script src="js/ResultReranker.js"></script>
 <!-- 5. المساعد الهجين (الموديول) في النهاية -->
+<script type="module">
+    import { hybridEngine } from './js/HybridSearchV1.js';
+    window.hybridEngine = hybridEngine;
+    window.dispatchEvent(new Event('hybridEngineReady'));
+</script>
 <script type="module" src="js/gpt_agent.js"></script>
 	
 
@@ -5026,6 +5031,7 @@ input.bg-success {
 
 </body>
 </html>
+
 
 
 
