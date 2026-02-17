@@ -978,7 +978,8 @@ async function processUserQuery(query) {
             if (rerankedResults && rerankedResults.length > 0) {
                 vectorMatch = rerankedResults[0];
                 vectorTargetDB = vectorMatch.dbName || searchResponse.intent;
-                vectorConfidence = vectorMatch.finalScore || searchResponse.confidence;
+                 // استخدام cosineScore الحقيقي وليس finalScore المركب
+                vectorConfidence = vectorMatch.cosineScore || vectorMatch.data?.score || searchResponse.confidence;
                 console.log(`✨ القرار النهائي بعد Reranking: القاعدة [${vectorTargetDB}] | النقاط [${vectorConfidence.toFixed(3)}]`);
             }
         } else if (searchResponse && searchResponse.topMatch) {
@@ -1032,8 +1033,10 @@ async function processUserQuery(query) {
      console.log(`🎯 قبول النية الدلالية بثقة: ${Math.round(vectorConfidence * 100)}%`);
      
      if (vectorTargetDB === 'decision104' || vectorMatch.id.toLowerCase().includes('dec')) {
-         console.log("⚖️ توجيه ذكي لمسار القرار 104");
-         return handleDecision104Query(query, questionType);
+    console.log("⚖️ توجيه ذكي لمسار القرار 104");
+    // تمرير بيانات المتجه للقرار 104 لاستخدامها مباشرة
+    window._lastVectorMatch = vectorMatch;
+    return handleDecision104Query(query, questionType);
      
              
              // 1. استخراج البيانات من المتجه
@@ -1861,6 +1864,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
