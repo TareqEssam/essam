@@ -951,7 +951,7 @@ async function processUserQuery(query) {
             console.log("⏳ انتظار اكتمال تهيئة المحرك...");
             await window.hybridEngine.initialize();
         }
-        const searchResponse = (window.hybridEngine && window.hybridEngine.isReady) ? await window.hybridEngine.search(query) : null;
+        searchResponse = (window.hybridEngine && window.hybridEngine.isReady) ? await window.hybridEngine.search(query) : null;
         
         // ج. البحث النصي بالتوازي (إن وُجد محرك نصي)
         let keywordResults = null;
@@ -1883,4 +1883,5 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
