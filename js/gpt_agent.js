@@ -1040,30 +1040,17 @@ async function processUserQuery(query) {
     if (vectorMatch && (vectorConfidence > 0.70 || vectorMatch.id.toLowerCase().includes('dec'))) {
      console.log(`🎯 قبول النية الدلالية بثقة: ${Math.round(vectorConfidence * 100)}%`);
      
-   if (vectorMatch && (vectorConfidence > 0.70 || vectorMatch.id.toLowerCase().includes('dec'))) {
-    console.log(`🎯 قبول النية الدلالية بثقة: ${Math.round(vectorConfidence * 100)}%`);
-    
-    if (vectorTargetDB === 'decision104' || vectorMatch.id.toLowerCase().includes('dec')) {
-        console.log("⚖️ توجيه ذكي لمسار القرار 104");
-
-        // --- المشرط الجراحي (تأمين المسار) ---
-        const topScore = vectorMatch.cosineScore || vectorMatch.score || 0;
-        
-        // فحص آمن جداً: نأخذ النتائج من searchResponse إن وجد، وإلا نستخدم مصفوفة تحتوي على النتيجة الأولى فقط
-        const safeResultsArray = (searchResponse && searchResponse.results) ? searchResponse.results : [vectorMatch];
-        
-        // نستخدم المصفوفة التي تم حسابها في سطر 990 مباشرة دون إعادة فلترة
-window._lastVectorResults = vectorMatch._allResults && vectorMatch._allResults.length > 1 ? vectorMatch._allResults : null;
-window._lastVectorMatch = vectorMatch;
-
-console.log(`📦 جراحياً: تم تمرير ${window._lastVectorResults ? window._lastVectorResults.length : 1} نتائج للقرار 104`);
-return handleDecision104Query(query, questionType);
-        // نمرر النتائج المتساوية فقط إذا كانت أكثر من واحدة
-        window._lastVectorResults = allTiedResults.length > 1 ? allTiedResults : null;
-        
-        console.log(`📦 جراحياً: تم تمرير ${allTiedResults.length} نتائج متساوية للقرار 104`);
-        return handleDecision104Query(query, questionType);
-       }
+     if (vectorTargetDB === 'decision104' || vectorMatch.id.toLowerCase().includes('dec')) {
+    console.log("⚖️ توجيه ذكي لمسار القرار 104");
+    const topCosine2 = searchResponse?.results?.[0]?.cosineScore || 0;
+    const tiedFinal = (searchResponse?.results || []).filter(r =>
+        Math.abs((r.cosineScore || 0) - topCosine2) < 0.01
+    );
+         // تمرير بيانات المتجه للقرار 104 لاستخدامها مباشرة    
+    window._lastVectorMatch = vectorMatch;
+    window._lastVectorResults = tiedFinal.length > 1 ? tiedFinal : null;
+    console.log(`📦 النتائج المتساوية المُمررة: ${window._lastVectorResults?.length || 0}`);
+    return handleDecision104Query(query, questionType);
      
              
              // 1. استخراج البيانات من المتجه
@@ -1892,28 +1879,3 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
