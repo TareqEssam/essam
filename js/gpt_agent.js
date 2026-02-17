@@ -1038,6 +1038,7 @@ async function processUserQuery(query) {
     // تمرير بيانات المتجه للقرار 104 لاستخدامها مباشرة
     window._lastVectorMatch = vectorMatch;
     window._lastVectorResults = searchResponse?.results || null;
+    console.log(`📦 النتائج المتساوية المُمررة: ${window._lastVectorResults?.length || 0}`);     
     return handleDecision104Query(query, questionType);
      
              
@@ -1867,6 +1868,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
