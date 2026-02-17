@@ -95,10 +95,8 @@ const SemanticBrain = {
 // ==================== 🌐 إتاحة SemanticBrain و IntentPatterns للمصنف ====================
 if (typeof window !== 'undefined') {
     window.SemanticBrain = SemanticBrain;
-    window.IntentPatterns = IntentPatterns;
-    console.log("✅ تم إتاحة SemanticBrain و IntentPatterns للاستخدام العالمي");
+    console.log("✅ تم إتاحة SemanticBrain للاستخدام العالمي");
 }
-
 // ==================== 🎯 أنماط النية الذكية ====================
 const IntentPatterns = {
     storage: { patterns: ["تخزين", "مخزن", "حفظ", "مستودع", "warehouse"], boost: 1.5 },
@@ -117,6 +115,11 @@ const IntentPatterns = {
     decision: { patterns: ["قرار", "104", "قانون", "حوافز", "اعفاءات", "incentives"], boost: 1.5 },
     sector: { patterns: ["قطاع", "sector", "أ", "ب"], boost: 1.4 }
 };
+
+if (typeof window !== 'undefined') {
+    window.IntentPatterns = IntentPatterns;
+    console.log("✅ تم إتاحة IntentPatterns للاستخدام العالمي");
+}
 // ==================== 💾 نظام التخزين المؤقت الذكي ====================
 const IntelligentCache = {
     searches: new Map(),
@@ -1398,3 +1401,4 @@ window.ContextManager = ContextManager;
 window.detectDatabaseType = detectDatabaseType;
 window.normalizeIndustrialZone = normalizeIndustrialZone;
 window.normalizeDecision104 = normalizeDecision104;
+
