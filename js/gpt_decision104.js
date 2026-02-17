@@ -236,7 +236,7 @@ function handleDecision104Query(query, questionType) {
     }
 
     // ===== استخراج اسم النشاط =====
-    const activityName = extractActivityFromQueryEnhanced(q);
+    let activityName = extractActivityFromQueryEnhanced(q);
     if (!activityName || activityName.length < 3) {
         return formatDecision104Options();
     }
@@ -919,6 +919,7 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
+
 
 
 
