@@ -116,8 +116,7 @@ class HybridSearchEngine {
         console.log("🧠 تم تحديث الوعي الدلالي بالسياق الحالي:", contextName);
     }
 
-    normalizeData(items) {
-        if (!Array.isArray(items)) return [];
+    
 
     normalizeData(items) {
         if (!Array.isArray(items)) return [];
@@ -431,4 +430,5 @@ async classifyIntent(query, queryVector) {
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
+
 
