@@ -930,24 +930,60 @@ async function processUserQuery(query) {
         if (decision104Response) return decision104Response;
     }
 
-    // 🧠 2️⃣ [المرحلة المتجهية: الموجه الدلالي الاحترافي V2]
+    // 🧠 2️⃣ [المرحلة المتجهية المحسّنة: الموجه الدلالي + المصنف الذكي + Reranker]
     let vectorMatch = null;
     let vectorTargetDB = null;
     let vectorConfidence = 0;
+    let keywordClassification = null;
 
     try {
+        // أ. التصنيف المسبق بالمصنف الكلماتي
+        if (window.intentClassifier) {
+            keywordClassification = window.intentClassifier.classify(query, context);
+            console.log("🎯 تصنيف المصنف الكلماتي:", keywordClassification);
+        }
+        
+        // ب. البحث الدلالي
         console.log("⏳ جاري استشارة الموجه الدلالي (Semantic Routing)...");
         const searchResponse = (window.hybridEngine && window.hybridEngine.isReady) ? await window.hybridEngine.search(query) : null;
         
-        if (searchResponse && searchResponse.topMatch) {
+        // ج. البحث النصي بالتوازي (إن وُجد محرك نصي)
+        let keywordResults = null;
+        if (window.NeuralSearch && typeof window.NeuralSearch === 'function') {
+            try {
+                const neuralSearch = new window.NeuralSearch();
+                const dbType = keywordClassification?.primary || 'activities';
+                keywordResults = await neuralSearch.search(query, dbType);
+                console.log("🔤 نتائج المحرك النصي:", keywordResults?.length || 0);
+            } catch (e) {
+                console.warn("⚠️ المحرك النصي غير متاح:", e.message);
+            }
+        }
+        
+        // د. إعادة الترتيب بالـ Reranker
+        if (searchResponse && searchResponse.results && window.resultReranker) {
+            const rerankedResults = window.resultReranker.rerank(
+                searchResponse.results,
+                keywordResults || [],
+                query,
+                context
+            );
+            
+            if (rerankedResults && rerankedResults.length > 0) {
+                vectorMatch = rerankedResults[0];
+                vectorTargetDB = vectorMatch.dbName || searchResponse.intent;
+                vectorConfidence = vectorMatch.finalScore || searchResponse.confidence;
+                console.log(`✨ القرار النهائي بعد Reranking: القاعدة [${vectorTargetDB}] | النقاط [${vectorConfidence.toFixed(3)}]`);
+            }
+        } else if (searchResponse && searchResponse.topMatch) {
+            // Fallback: استخدام النتيجة الدلالية فقط
             vectorMatch = searchResponse.topMatch; 
-            // جراحة: استخلاص القاعدة من بيانات النتيجة مباشرة لضمان عدم الضياع
             vectorTargetDB = searchResponse.topMatch.dbName || searchResponse.intent;
             vectorConfidence = searchResponse.confidence;
             console.log(`✨ القرار الدلالي: القاعدة [${vectorTargetDB}] | المعرف [${vectorMatch.id}]`);
         }
     } catch (e) {
-        console.error("⚠️ فشل الموجه الدلالي، الاعتماد على التحليل النصي فقط:", e);
+        console.error("⚠️ فشل المعالجة الذكية، الاعتماد على التحليل النصي فقط:", e);
     }
 
     // 🔄 3️⃣ [إدارة الذاكرة والسياق] - الحفاظ على تسلسل الأفكار
@@ -1782,18 +1818,3 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
