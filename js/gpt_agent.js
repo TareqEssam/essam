@@ -1821,6 +1821,7 @@ window.initializeGptSystem = async function() {
                     window.hybridEngine.updateContextToken(window.AgentMemory.getContext());
                 }
             }
+            }
             
             localStorage.setItem('gpt_model_ready', 'true');
             if(progressBar) progressBar.style.width = '100%';
@@ -1860,6 +1861,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
