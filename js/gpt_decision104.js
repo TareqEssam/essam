@@ -252,7 +252,15 @@ function handleDecision104Query(query, questionType) {
         'يستفيد', 'تستفيد', 'استفاده', 'مشمولة', 'مشموله', 'موجوده'
     ];
     const queryTerms = activityName.split(/\s+/).map(w => normalizeArabic(w));
-    const significantTerms = queryTerms.filter(w => !commonVerbs.includes(w) && w.length > 2);
+const significantTerms = queryTerms.filter(w => !commonVerbs.includes(w) && w.length > 2);
+
+// إذا كان المحرك الدلالي وجد نتيجة → استخدم النشاط من المتجه مباشرة
+const vectorData = window._lastVectorMatch?.data?.original_data;
+const vectorActivityName = vectorData?.النشاط_المحدد || vectorData?.activity || null;
+if (vectorActivityName && significantTerms.length === 0) {
+    console.log(`🧠 استخدام نتيجة المتجه مباشرة: ${vectorActivityName}`);
+    return searchInDecision104EnhancedForBothSectors(vectorActivityName);
+}
     console.log(`🧠 [Smart Filter] الكلمات الجوهرية بعد التنقية: [${significantTerms.join(', ')}]`);
 
     // تحديد نطاق البحث
@@ -898,4 +906,5 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
+
 
