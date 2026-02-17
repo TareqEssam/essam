@@ -399,28 +399,19 @@ async classifyIntent(query, queryVector) {
         }
         
         const sortedResults = allResults.sort((a, b) => b.score - a.score);
-
-         // إذا كانت النتائج العليا متساوية → عرضها جميعاً
-          const topScore = sortedResults[0]?.cosineScore || 0;
-          const tiedResults = sortedResults.filter(r => 
-          Math.abs((r.cosineScore || 0) - topScore) < 0.01
-          );
-
-const finalResults = tiedResults.length > 1 && tiedResults.length <= 8
-    ? tiedResults  // عرض كل المتساويات
-    : sortedResults.slice(0, topK);
+        const finalResults = sortedResults.slice(0, topK);
         
         console.log(`✅ Found ${finalResults.length} results (from ${allResults.length})`);
-finalResults.forEach((r, i) => {
-    console.log(`${i === 0 ? '🏆' : `${i+1}.`} ${r.id} | النشاط: ${r.data?.original_data?.النشاط_المحدد || r.data?.text} | Cosine: ${Math.round((r.cosineScore || 0) * 100)}% [${r.dbName}]`);
-});
+        finalResults.forEach((r, i) => {
+            console.log(`${i === 0 ? '🏆' : `${i+1}.`} ${r.id} | النشاط: ${r.data?.original_data?.النشاط_المحدد || r.data?.text} | Cosine: ${Math.round((r.cosineScore || 0) * 100)}% [${r.dbName}]`);
+        });
         
         const topCosineScore = finalResults[0]?.cosineScore || 0;
 
-        
-       // حفظ كل النتائج في الـ topMatch لاستخدامها لاحقاً
-       const topResult = finalResults[0];
-       if (topResult) topResult._allResults = finalResults;
+        // كشف النتائج المتساوية في الوزن
+        const tiedResults = finalResults.filter(r =>
+            Math.abs((r.cosineScore || 0) - topCosineScore) < 0.01
+        );
 
         return {
             query: query,
@@ -429,7 +420,10 @@ finalResults.forEach((r, i) => {
                 id: finalResults[0].id,
                 dbName: finalResults[0].dbName,
                 score: finalResults[0].cosineScore || 0,
-                data: finalResults[0].data
+                cosineScore: finalResults[0].cosineScore || 0,
+                data: finalResults[0].data,
+                // تمرير كل النتائج المتساوية
+                _allResults: tiedResults.length > 1 ? tiedResults : null
             } : null,
             results: finalResults.map(r => ({
                 ...r,
@@ -443,6 +437,7 @@ finalResults.forEach((r, i) => {
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
+
 
 
 
