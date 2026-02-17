@@ -1043,18 +1043,25 @@ async function processUserQuery(query) {
    if (vectorMatch && (vectorConfidence > 0.70 || vectorMatch.id.toLowerCase().includes('dec'))) {
     console.log(`🎯 قبول النية الدلالية بثقة: ${Math.round(vectorConfidence * 100)}%`);
     
-    // حساب دقيق جداً للتساوي (Ties)
-    const topScore = vectorMatch.cosineScore || vectorMatch.score || 0;
-    const allTiedResults = searchResponse.results.filter(r => 
-        Math.abs((r.cosineScore || r.score || 0) - topScore) < 0.001
-    );
+    if (vectorTargetDB === 'decision104' || vectorMatch.id.toLowerCase().includes('dec')) {
+        console.log("⚖️ توجيه ذكي لمسار القرار 104");
 
-    // تمرير النتائج كاملة للنافذة العالمية
-    window._lastVectorMatch = vectorMatch;
-    window._lastVectorResults = allTiedResults.length > 1 ? allTiedResults : null;
-    
-    console.log(`📦 جراحياً: تم تمرير ${allTiedResults.length} نتيجة متساوية لمحرك القرار.`);
-    return handleDecision104Query(query, questionType);
+        // --- المشرط الجراحي (تأمين المسار) ---
+        const topScore = vectorMatch.cosineScore || vectorMatch.score || 0;
+        
+        // فحص آمن جداً: نأخذ النتائج من searchResponse إن وجد، وإلا نستخدم مصفوفة تحتوي على النتيجة الأولى فقط
+        const safeResultsArray = (searchResponse && searchResponse.results) ? searchResponse.results : [vectorMatch];
+        
+        const allTiedResults = safeResultsArray.filter(r => 
+            Math.abs((r.cosineScore || r.score || 0) - topScore) < 0.005 // رفع نسبة التسامح قليلاً لضمان التقاط الـ 5 نتائج
+        );
+
+        window._lastVectorMatch = vectorMatch;
+        // نمرر النتائج المتساوية فقط إذا كانت أكثر من واحدة
+        window._lastVectorResults = allTiedResults.length > 1 ? allTiedResults : null;
+        
+        console.log(`📦 جراحياً: تم تمرير ${allTiedResults.length} نتائج متساوية للقرار 104`);
+        return handleDecision104Query(query, questionType);
        
      
              
@@ -1884,6 +1891,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
