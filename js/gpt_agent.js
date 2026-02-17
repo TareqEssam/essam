@@ -1114,8 +1114,25 @@ async function processUserQuery(query) {
         if (clarification) return clarification;
     }
     
-    // د. [صمام الأمان النهائي - Fallback] - العودة للمنطق النصي التقليدي
+    // د. [صمام الأمان النهائي - Fallback]
     console.log("🛡️ تفعيل صمام الأمان: البحث في المسارات البديلة");
+
+    // 🎯 أولوية قصوى: تنفيذ قرار المصنف الكلماتي إذا كان واثقاً
+    if (keywordClassification && keywordClassification.confidence >= 3.0) {
+        console.log(`🎯 صمام الأمان يستخدم قرار المصنف: ${keywordClassification.primary}`);
+        if (keywordClassification.primary === 'decision104') {
+            return handleDecision104Query(query, questionType);
+        }
+        if (keywordClassification.primary === 'industrial_zones') {
+            const res = await handleIndustrialQuery(query, questionType, analysisContext, entities);
+            if (res) return res;
+        }
+        if (keywordClassification.primary === 'activities') {
+            const res = await handleActivityQuery(query, questionType, analysisContext, entities);
+            if (res) return res;
+        }
+    }
+
     const isClearlyIndustrial = checkIfIndustrialQuestion(query, questionType, analysisContext, entities);
     const isClearlyActivity = checkIfActivityQuestion(query, questionType, analysisContext, entities);
     
@@ -1819,5 +1836,6 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
