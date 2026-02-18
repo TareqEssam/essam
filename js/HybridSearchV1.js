@@ -268,13 +268,35 @@ if (decisionWins) {
 
     // 6️⃣ [التوجيه بناءً على الثقة العالية]
     if (scores[0].confidence > this.intentThreshold) {
-        console.log(`✅ Semantic routing to [${scores[0].database}]`);
+        const semanticWinner = scores[0].database;
+        const semanticRunnerUp = scores[1]?.database;
+        const semanticGap = scores[1] ? scores[0].confidence - scores[1].confidence : 1;
+
+        // ✅ حماية النشاط: إذا قال المصنف الكلماتي "activities" واثقاً
+        // والدلالي اختار decision104 بفارق ضئيل → نُفضل activities
+        if (semanticWinner === 'decision104' && semanticGap < 0.05 &&
+            keywordClassification?.primary === 'activities' &&
+            keywordClassification?.confidence >= 3.0) {
+            console.log(`🔒 [حماية النشاط] تعادل دلالي + مصنف كلماتي واثق → activities`);
+            return ['activities', 'decision104'];
+        }
+
+        // ✅ حماية المناطق: إذا قال المصنف الكلماتي "areas" واثقاً
+        // والدلالي اختار decision104 بفارق ضئيل → نُفضل areas
+        if (semanticWinner === 'decision104' && semanticGap < 0.05 &&
+            (keywordClassification?.primary === 'areas' || keywordClassification?.primary === 'industrial_zones') &&
+            keywordClassification?.confidence >= 3.0) {
+            console.log(`🔒 [حماية المناطق] تعادل دلالي + مصنف كلماتي واثق → areas`);
+            return ['areas', 'decision104'];
+        }
+
+        console.log(`✅ Semantic routing to [${semanticWinner}]`);
         
-        if (scores[1] && (scores[0].confidence - scores[1].confidence < 0.08)) {
-            return [scores[0].database, scores[1].database];
+        if (semanticRunnerUp && semanticGap < 0.08) {
+            return [semanticWinner, semanticRunnerUp];
         }
         
-        return [scores[0].database];
+        return [semanticWinner];
     }
     
     // 7️⃣ [صمام الأمان - استخدام نتيجة المصنف الكلماتي إن وُجدت]
