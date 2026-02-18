@@ -64,7 +64,7 @@ class IntentClassifier {
                     'area': 2.2,
                     'industrial': 2.5
                 },
-                minScore: 4.0
+                minScore: 3.0  // ✅ خفض العتبة: كلمة "مناطق" وحدها تكفي للتوجيه الصحيح
             },
             
             decision104: {
@@ -90,7 +90,7 @@ class IntentClassifier {
                     'incentives': 3.0,
                     'tax': 2.0
                 },
-                minScore: 4.0
+                minScore: 5.0  // ✅ رفع العتبة: يحتاج كلمات قوية مثل "104" أو "حوافز" أو "قطاع"
             }
         };
         
