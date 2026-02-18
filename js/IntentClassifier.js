@@ -292,21 +292,25 @@ class IntentClassifier {
                 this.stats.ambiguousCases++;
                 console.log("⚠️ حالة غامضة - سيتم البحث في كلا القاعدتين");
                 
+                // ✅ ترجمة: industrial_zones → areas للتوافق مع this.databases
+                const mapDB = db => db === 'industrial_zones' ? 'areas' : db;
                 return {
-                    primary: winner[0],
-                    secondary: runnerUp[0],
+                    primary: mapDB(winner[0]),
+                    secondary: mapDB(runnerUp[0]),
                     confidence: winner[1],
                     isAmbiguous: true,
-                    searchOrder: [winner[0], runnerUp[0]]
+                    searchOrder: [winner[0], runnerUp[0]].map(mapDB)
                 };
             }
             
+            // ✅ ترجمة: industrial_zones → areas للتوافق مع this.databases
+            const mapDB2 = db => db === 'industrial_zones' ? 'areas' : db;
             return {
-                primary: winner[0],
+                primary: mapDB2(winner[0]),
                 secondary: null,
                 confidence: winner[1],
                 isAmbiguous: false,
-                searchOrder: [winner[0]]
+                searchOrder: [winner[0]].map(mapDB2)
             };
         }
         
@@ -317,7 +321,7 @@ class IntentClassifier {
             secondary: null,
             confidence: 0,
             isAmbiguous: true,
-            searchOrder: ['activities', 'decision104', 'industrial_zones']
+            searchOrder: ['activities', 'areas', 'decision104'] // ✅ ترجمة industrial_zones→areas
         };
     }
     
