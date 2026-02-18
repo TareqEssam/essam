@@ -328,19 +328,76 @@ if (vectorActivityName && significantTerms.length === 0) {
     }
     results = deduplicateResults(results);
 
-    // فلترة الكلمات الجوهرية
+    // فلترة الكلمات الجوهرية - نظام ثلاثي المراحل
     if (significantTerms.length > 0 && results.length > 0) {
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // المرحلة 1: فلترة صارمة - تطابق كل الكلمات الجوهرية
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         const strictResults = results.filter(r => {
             const itemText = normalizeArabic(r.item.activity);
             const matched = significantTerms.filter(term => itemText.includes(term)).length;
-            return (matched / significantTerms.length) >= 0.4;
+            return matched === significantTerms.length; // تطابق 100%
         });
+
         if (strictResults.length > 0) {
             results = strictResults;
-            console.log(`🧹 [Smart Filter] تم تقليص النتائج إلى ${results.length} نتيجة دقيقة.`);
+            console.log(`✅ [Smart Filter - صارم] ${results.length} نتيجة بتطابق كامل.`);
+
         } else {
-            console.log("⚠️ [Smart Filter] لم نجد تطابقًا قويًا، نحتفظ بالنتائج الأصلية.");
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // المرحلة 2: فلترة متوسطة - عتبة ديناميكية
+            // 3+ كلمات → 0.70 | كلمتان → 0.60 | كلمة → تمر كلها
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            const dynamicThreshold = significantTerms.length >= 3 ? 0.70
+                                   : significantTerms.length === 2 ? 0.60
+                                   : 0.40;
+
+            const midResults = results.filter(r => {
+                const itemText = normalizeArabic(r.item.activity);
+                const matched = significantTerms.filter(term => itemText.includes(term)).length;
+                return (matched / significantTerms.length) >= dynamicThreshold;
+            });
+
+            if (midResults.length > 0) {
+                results = midResults;
+                console.log(`🔶 [Smart Filter - متوسط] ${results.length} نتيجة (عتبة ${dynamicThreshold}).`);
+            } else {
+                console.log("⚠️ [Smart Filter] لم نجد تطابقًا قويًا، نحتفظ بالنتائج الأصلية.");
+            }
         }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // المرحلة 3: تحديد الأعلى تطابقاً (max 3 لكل قطاع) إذا بقيت نتائج كثيرة
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if (results.length > 4) {
+            // ترتيب بعدد الكلمات المتطابقة ثم بالثقة
+            results.sort((a, b) => {
+                const textA = normalizeArabic(a.item.activity);
+                const textB = normalizeArabic(b.item.activity);
+                const mA = significantTerms.filter(t => textA.includes(t)).length;
+                const mB = significantTerms.filter(t => textB.includes(t)).length;
+                if (mB !== mA) return mB - mA;
+                return (b.score || 0) - (a.score || 0);
+            });
+            // احتفظ بأفضل نتيجتين لكل قطاع
+            const bysector = {};
+            const trimmed = [];
+            for (const r of results) {
+                const sec = r.sector || r.item?.sector || 'X';
+                bysector[sec] = (bysector[sec] || 0);
+                if (bysector[sec] < 2) {
+                    trimmed.push(r);
+                    bysector[sec]++;
+                }
+            }
+            if (trimmed.length > 0 && trimmed.length < results.length) {
+                console.log(`✂️ [Smart Filter - تقليص] ${results.length} → ${trimmed.length} (أفضل 2 لكل قطاع).`);
+                results = trimmed;
+            }
+        }
+
+        console.log(`🧹 [Smart Filter] النتائج النهائية: ${results.length} نتيجة دقيقة.`);
     }
 
     // ترتيب النتائج
@@ -952,4 +1009,3 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
-
