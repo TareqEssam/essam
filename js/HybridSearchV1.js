@@ -23,7 +23,7 @@ class HybridSearchEngine {
         this.isReady = false;
             this.activeContextName = null; // لتخزين اسم النشاط أو المنطقة الحالية دلالياً
         
-        this.intentThreshold = 0.28;
+        this.intentThreshold = 0.55; // ✅ رفع العتبة: يمنع الكلمات المفردة من حسم القاعدة دلالياً
         this.multiIntentThreshold = 0.24;
         this.bm25K1 = 1.5;
         this.bm25B  = 0.75;
@@ -235,14 +235,18 @@ async classifyIntent(query, queryVector) {
 
     // 4️⃣ [دمج النتائج من المصنفين]
     if (keywordClassification && !keywordClassification.isAmbiguous) {
-        // إذا كان المصنف الكلماتي واثقاً، نستخدم نتيجته مع التحقق الدلالي
         const keywordPrimary = keywordClassification.primary;
+        // ✅ ترجمة industrial_zones → areas لأن this.databases لا يعرف إلا 'areas'
+        const resolvedPrimary = keywordPrimary === 'industrial_zones' ? 'areas' : keywordPrimary;
         const semanticTop = scores[0].database;
         
-        // إذا اتفق المصنفان
-        if (keywordPrimary === semanticTop || keywordClassification.confidence > 6.0) {
-            console.log("✅ اتفاق بين المصنف الكلماتي والدلالي → " + keywordPrimary);
-            return keywordClassification.searchOrder;
+        if (resolvedPrimary === semanticTop || keywordClassification.confidence > 6.0) {
+            console.log("✅ اتفاق بين المصنف الكلماتي والدلالي → " + resolvedPrimary);
+            // ✅ ترجمة searchOrder كاملاً قبل الإرجاع
+            const resolvedOrder = keywordClassification.searchOrder.map(db =>
+                db === 'industrial_zones' ? 'areas' : db
+            );
+            return resolvedOrder;
         }
     }
 
@@ -276,11 +280,15 @@ if (decisionWins) {
     // 7️⃣ [صمام الأمان - استخدام نتيجة المصنف الكلماتي إن وُجدت]
     if (keywordClassification) {
         console.log("⚠️ استخدام نتيجة المصنف الكلماتي كخطة احتياطية");
-        return keywordClassification.searchOrder;
+        // ✅ ترجمة searchOrder قبل الإرجاع
+        const resolvedOrder7 = keywordClassification.searchOrder.map(db =>
+            db === 'industrial_zones' ? 'areas' : db
+        );
+        return resolvedOrder7;
     }
     
     console.log("⚠️ ثقة دلالية منخفضة، استخدام البحث الشامل");
-    return ['activities', 'decision104', 'areas'];
+    return ['activities', 'areas', 'decision104']; // ✅ ترتيب افتراضي: activities أولاً
 }
 
 
