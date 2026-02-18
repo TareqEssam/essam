@@ -112,7 +112,9 @@ class HybridSearchEngine {
      // ✨ اضف الدالة الجديدة هنا بمشرط الجراح ✨
     updateContextToken(context) {
         if (!context || !context.data) {
+            // ✅ مسح فوري عند استدعاء AgentMemory.clear()
             this.activeContextName = null;
+            console.log("🧹 تم مسح السياق الدلالي من المحرك");
             return;
         }
         // استخراج الاسم سواء كان نشاطاً (text) أو منطقة (name)
@@ -182,13 +184,18 @@ class HybridSearchEngine {
         
         let enhancedQuery = query;
 
+        // ✅ الإصلاح: كلمات تدل على موضوع جديد تمنع دمج السياق القديم
+        const isNewTopic = /(مناطق|منطقه|منطقة|عدد.*منطق|ما هي.*المناطق|كم.*منطق|القرار\s*104|حوافز|اعفاء|قطاع\s*(أ|ب)|مشروع\s+جديد)/i.test(query.trim());
+
         // التحقق من الكلمات الدلالية التي تشير إلى أن المستخدم يكمل حديثه
-        const isFollowUp = /^(ما|هي|هو|كم|اين|فين|شروط|حوافز|تراخيص|قرار|ده|دي|موقع|تبعيه|ولايه)/i.test(query.trim());
+        const isFollowUp = !isNewTopic && /^(ما|هي|هو|كم|اين|فين|شروط|تراخيص|ده|دي|موقع|تبعيه|ولايه)/i.test(query.trim());
         
         if (isFollowUp && contextName) {
             // دمج السياق دلالياً لتحسين فهم vector السؤال
             enhancedQuery = `query: ${query} context: ${contextName}`; 
             console.log("🧠 تم تعزيز الاستعلام دلالياً بالسياق:", contextName);
+        } else if (isNewTopic && contextName) {
+            console.log("🔄 موضوع جديد - تجاهل السياق القديم:", contextName);
         }
         return enhancedQuery;
     }
@@ -241,7 +248,16 @@ async classifyIntent(query, queryVector) {
 
     // 5️⃣ [منطق الترجيح العلمي - Scientific Priority Logic]
 const decisionMatch = scores.find(s => s.database === 'decision104');
-if (decisionMatch && decisionMatch.confidence > 0.28) {
+const areasMatch = scores.find(s => s.database === 'areas');
+const activitiesMatch = scores.find(s => s.database === 'activities');
+
+// ✅ الإصلاح: decision104 لا يفوز إلا إذا كان متقدماً بوضوح على المنافسين
+const decisionWins = decisionMatch &&
+    decisionMatch.confidence > 0.82 &&
+    decisionMatch.confidence > (areasMatch?.confidence || 0) + 0.05 &&
+    decisionMatch.confidence > (activitiesMatch?.confidence || 0) + 0.05;
+
+if (decisionWins) {
     console.log(`⚖️ ترجيح دلالي: اكتشاف نية قانونية/استثمارية بقوة ${Math.round(decisionMatch.confidence * 100)}%`);
     return ['decision104', 'activities'];
 }
@@ -501,12 +517,3 @@ if (decisionMatch && decisionMatch.confidence > 0.28) {
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
-
-
-
-
-
-
-
-
-
