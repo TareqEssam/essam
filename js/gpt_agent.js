@@ -1037,10 +1037,12 @@ async function processUserQuery(query) {
 
     // جراحة: لا تنفذ فوراً إلا إذا كانت الثقة الدلالية حقيقية (ليست ناتجة عن RRF فقط)
     // وإذا كان المعرف يبدأ بـ decision104، نتأكد من إرساله للمحرك المتخصص دون "تنظيف"
-    if (vectorMatch && (vectorConfidence > 0.70 || vectorMatch.id.toLowerCase().includes('dec'))) {
+    if (vectorMatch && vectorConfidence > 0.70) {
      console.log(`🎯 قبول النية الدلالية بثقة: ${Math.round(vectorConfidence * 100)}%`);
      
-     if (vectorTargetDB === 'decision104' || vectorMatch.id.toLowerCase().includes('dec')) {
+     // ✅ الإصلاح: decision104 يُفعَّل فقط إذا كانت قاعدة البيانات المستهدفة فعلاً decision104
+     // وليس بمجرد أن ID يحتوي 'dec' (قد يكون مصادفة في أسماء أخرى)
+     if (vectorTargetDB === 'decision104') {
     console.log("⚖️ توجيه ذكي لمسار القرار 104");
     // استخدام cosineScore الخام من searchResponse.results (قبل Reranker) للمقارنة الصحيحة
     const allDecisionResults = (searchResponse?.results || []).filter(r =>
@@ -1883,5 +1885,3 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
-
-
