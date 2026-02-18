@@ -109,7 +109,7 @@ const chatHTML = `
             <div style="font-size: 60px; margin-bottom: 20px;">🧠</div>
             <h2 style="color: white; margin: 0 0 15px 0; font-size: 24px;">تهيئة المساعد</h2>
             <p style="color: rgba(255,255,255,0.9); margin: 0 0 25px 0; font-size: 16px;">
-                جاري تحميل "المحرك " والبيانات...<br>
+                جاري تحميل البيانات...<br>
                 <small style="opacity: 0.8;">(هذه العملية تتم مرة واحدة فقط)</small>
             </p>
             <div style="background: rgba(255,255,255,0.2); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 15px;">
@@ -1914,7 +1914,7 @@ window.initializeGptSystem = async function() {
         if(splash) splash.style.display = 'flex';
         try {
             if (window.hybridEngine) {
-                if(statusText) statusText.innerText = "جاري تحميل المحرك الدلالي...";
+                if(statusText) statusText.innerText = "جاري تحميل قاعدة البيانات للمساعد...";
                 if(progressBar) progressBar.style.width = '30%';
                 await window.hybridEngine.initialize();
                 if(progressBar) progressBar.style.width = '90%';
@@ -1962,3 +1962,4 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
