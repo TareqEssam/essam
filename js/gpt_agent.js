@@ -107,9 +107,9 @@ const chatHTML = `
              padding: 40px; border-radius: 20px; text-align: center; max-width: 500px; 
              box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
             <div style="font-size: 60px; margin-bottom: 20px;">🧠</div>
-            <h2 style="color: white; margin: 0 0 15px 0; font-size: 24px;">تهيئة المحرك الدلالي</h2>
+            <h2 style="color: white; margin: 0 0 15px 0; font-size: 24px;">تهيئة المساعد</h2>
             <p style="color: rgba(255,255,255,0.9); margin: 0 0 25px 0; font-size: 16px;">
-                جاري تحميل "المساعد" والبيانات...<br>
+                جاري تحميل "المحرك " والبيانات...<br>
                 <small style="opacity: 0.8;">(هذه العملية تتم مرة واحدة فقط)</small>
             </p>
             <div style="background: rgba(255,255,255,0.2); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 15px;">
@@ -943,18 +943,27 @@ async function processUserQuery(query) {
 
     if (isExplicitActivityQuery) {
         console.log("🎯 [بوابة النية] تصريح بنشاط تجاري → activities");
-        const res = await handleActivityQuery(query, questionType, null, null);
+        // ✅ إصلاح: تمرير context و entities محسوبتين مسبقاً لتجنب ReferenceError
+        const _ctx = (typeof analyzeContext === 'function') ? analyzeContext(query, questionType) : {};
+        const _ent = (typeof extractEntities === 'function') ? extractEntities(query) : {};
+        const res = await handleActivityQuery(query, questionType, _ctx, _ent);
         if (res && !res.includes('لم أجد')) return res;
     }
 
     // ✅ المستخدم يبدأ بكلمة "منطقة/مناطق" أو يسأل عن عددها → areas
     const isExplicitAreaQuery = /^(كم\s+عدد|عدد)\s+(المناطق|مناطق)/.test(q) ||
         /^(هل|ما\s+هي?|اين|أين)\s+(منطقه|منطقة|مناطق)/.test(q) ||
-        /^(المنطقه|المنطقة|منطقه|منطقة)\s+\S/.test(q);
+        /^(المنطقه|المنطقة|منطقه|منطقة)\s+\S/.test(q) ||
+        // ✅ إضافة: "المناطق التابعة لـ" → areas دائماً
+        /^المناطق\s+(التابعه|التابعة|الصناعيه|الصناعية|الحره|الحرة)/.test(q) ||
+        /^(ما|اذكر|اعرض|عرض)\s+(المناطق|مناطق)\s+(التابعه|التابعة|الصناعيه|الصناعية)/.test(q);
 
     if (isExplicitAreaQuery) {
         console.log("🏭 [بوابة النية] تصريح بمنطقة صناعية → areas");
-        const res = await handleIndustrialQuery(query, questionType, null, null);
+        // ✅ إصلاح: تمرير context و entities محسوبتين مسبقاً
+        const _ctx2 = (typeof analyzeContext === 'function') ? analyzeContext(query, questionType) : {};
+        const _ent2 = (typeof extractEntities === 'function') ? extractEntities(query) : {};
+        const res = await handleIndustrialQuery(query, questionType, _ctx2, _ent2);
         if (res && !res.includes('لم أجد')) return res;
     }
 
@@ -1953,4 +1962,3 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
-
