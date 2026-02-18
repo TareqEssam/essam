@@ -104,10 +104,15 @@ window.AgentMemory = {
     clear: async function() {
         this.lastActivity = null;
         this.lastIndustrial = null;
+        this.lastDecisionActivity = null;  // ✅ مسح سياق القرار 104 أيضاً
         this.previousContext = null;
         this.lastQuery = null;
         this.pendingClarification = null;
         this.conversationContext = [];
+        // ✅ إخطار المحرك الدلالي بمسح السياق فوراً (وليس عند save فقط)
+        if (window.hybridEngine && typeof window.hybridEngine.updateContextToken === 'function') {
+            window.hybridEngine.updateContextToken(null);
+        }
         this.save();
         console.log("🧹 تم مسح الذاكرة.");
     }
@@ -115,5 +120,3 @@ window.AgentMemory = {
 
 // تشغيل التحميل فوراً
 window.AgentMemory.load();
-
-
