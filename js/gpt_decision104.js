@@ -117,12 +117,12 @@ function detectSearchScopeEnhanced(query) {
 /**
  * بحث محسّن في كلا القطاعين
  */
-function searchInDecision104EnhancedForBothSectors(activityName) {
+async function searchInDecision104EnhancedForBothSectors(activityName) {
     const normalizedQuery = normalizeArabic(activityName);
     const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
     let allResults = [];
-    if (window.sectorAData) allResults.push(...searchInSectorData(window.sectorAData, 'A', normalizedQuery, queryWords));
-    if (window.sectorBData) allResults.push(...searchInSectorData(window.sectorBData, 'B', normalizedQuery, queryWords));
+    if (window.sectorAData) allResults.push(...await searchInSectorData(window.sectorAData, 'A', normalizedQuery, queryWords));
+    if (window.sectorBData) allResults.push(...await searchInSectorData(window.sectorBData, 'B', normalizedQuery, queryWords));
     allResults.sort((a, b) => b.score - a.score);
     return deduplicateResults(allResults);
 }
@@ -130,18 +130,24 @@ function searchInDecision104EnhancedForBothSectors(activityName) {
 /**
  * بحث في قطاع محدد
  */
-function searchInDecision104EnhancedForSpecificSector(activityName, targetSector) {
+async function searchInDecision104EnhancedForSpecificSector(activityName, targetSector) {
     const normalizedQuery = normalizeArabic(activityName);
     const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
     const data = targetSector === 'A' ? window.sectorAData : window.sectorBData;
-    return searchInSectorData(data, targetSector, normalizedQuery, queryWords);
+    return await searchInSectorData(data, targetSector, normalizedQuery, queryWords);
 }
 
 /**
- * بحث داخل بيانات قطاع معين باستخدام NeuralSearch
+ * بحث داخل بيانات قطاع معين — هجين: دلالي (hybridEngine) + نصي (NeuralSearch) + Reranker
+ * 
+ * ملاحظة: hybridEngine يبحث في decision104 ككتلة واحدة من vector_knowledge_db.json،
+ * لذا نستخدم نتائجه كطبقة دلالية ونصفّيها على القطاع المطلوب،
+ * بينما يظل NeuralSearch هو المرجع للبحث في بيانات القطاعات الخام (sectorAData/sectorBData).
  */
-function searchInSectorData(sectorData, sectorId, normalizedQuery, queryWords) {
+async function searchInSectorData(sectorData, sectorId, normalizedQuery, queryWords) {
     if (!sectorData) return [];
+
+    // بناء البيانات المسطّحة للقطاع
     let flatData = [];
     for (const [mainSector, subSectors] of Object.entries(sectorData)) {
         for (const [subSector, activities] of Object.entries(subSectors)) {
@@ -150,17 +156,96 @@ function searchInSectorData(sectorData, sectorId, normalizedQuery, queryWords) {
             });
         }
     }
-    const searchResults = NeuralSearch(normalizedQuery, flatData, {
-        minScore: 50,
-        cacheScope: `sector_${sectorId}`
-    });
-    return deduplicateResults(searchResults.results.map(r => ({
-        item: r.originalData,
-        score: r.finalScore,
-        confidence: Math.min(Math.round(r.finalScore / 10), 100),
-        sector: sectorId,
-        sectorName: sectorId === 'A' ? 'القطاع أ' : 'القطاع ب'
-    })));
+
+    // ════════════════════════════════════════════════════════
+    // أ. البحث الدلالي — نسحب نتائج decision104 المصنّفة للقطاع المطلوب
+    // ════════════════════════════════════════════════════════
+    let semanticResults = [];
+    if (window.hybridEngine && window.hybridEngine.isReady) {
+        try {
+            const semanticResponse = await window.hybridEngine.search(normalizedQuery);
+            // نصفّي decision104 فقط ثم نتحقق من القطاع من original_data
+            semanticResults = (semanticResponse?.results || [])
+                .filter(r => {
+                    if (r.dbName !== 'decision104') return false;
+                    const od = r.data?.original_data;
+                    const sectorRaw = (od?.القطاع || od?.sector || r.id || '').toString();
+                    if (sectorId === 'A') return sectorRaw.includes('أ') || sectorRaw.toLowerCase().includes('a');
+                    if (sectorId === 'B') return sectorRaw.includes('ب') || sectorRaw.toLowerCase().includes('b');
+                    return true;
+                });
+            console.log(`🧠 نتائج دلالية (decision104 - القطاع ${sectorId}): ${semanticResults.length}`);
+        } catch (e) {
+            console.warn("⚠️ فشل البحث الدلالي في القرار 104:", e.message);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // ب. البحث النصي — NeuralSearch على البيانات الخام للقطاع
+    // ════════════════════════════════════════════════════════
+    let keywordResults = [];
+    if (typeof NeuralSearch === 'function') {
+        try {
+            const nsResult = NeuralSearch(normalizedQuery, flatData, {
+                minScore: 50,
+                cacheScope: `sector_${sectorId}`
+            });
+            keywordResults = nsResult?.results || [];
+            console.log(`🔤 نتائج نصية (القطاع ${sectorId}): ${keywordResults.length}`);
+        } catch (e) {
+            console.warn("⚠️ فشل البحث النصي في القطاع:", e.message);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // ج. دمج النتائج بالـ Reranker أو Fallback للنصي فقط
+    // ════════════════════════════════════════════════════════
+    let mergedResults = [];
+    if (window.resultReranker && (semanticResults.length > 0 || keywordResults.length > 0)) {
+        mergedResults = window.resultReranker.rerank(
+            semanticResults,
+            keywordResults,
+            normalizedQuery,
+            AgentMemory.getContext()
+        );
+        console.log(`✨ نتائج القطاع ${sectorId} بعد Reranking: ${mergedResults.length}`);
+    } else {
+        // Fallback: نتائج NeuralSearch الخام
+        mergedResults = keywordResults;
+        console.log(`⚠️ Fallback: نتائج نصية فقط للقطاع ${sectorId}`);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // د. تحويل النتائج للصيغة الموحّدة المتوقعة من الدوال العليا
+    // ════════════════════════════════════════════════════════
+    const mapped = mergedResults.map(r => {
+        // نتيجة قادمة من NeuralSearch (keyword) → لها originalData مباشرة
+        if (r.originalData || r.finalScore !== undefined) {
+            return {
+                item: r.originalData || r,
+                score: r.finalScore || r.finalScore || 0,
+                confidence: Math.min(Math.round((r.finalScore || 0) / 10), 100),
+                sector: sectorId,
+                sectorName: sectorId === 'A' ? 'القطاع أ' : 'القطاع ب'
+            };
+        }
+        // نتيجة قادمة من Reranker → قد تكون من المحرك الدلالي
+        const od = r.data?.original_data;
+        return {
+            item: {
+                activity: od?.النشاط_المحدد || od?.activity || od?.النشاط || r.text || '',
+                mainSector: od?.القطاع_الرئيسي || od?.mainSector || '',
+                subSector: od?.القطاع_الفرعي || od?.subSector || '',
+                sector: sectorId
+            },
+            score: r.finalScore || r.score || 0,
+            confidence: Math.min(Math.round((r.finalScore || r.score || 0) * 10), 100),
+            sector: sectorId,
+            sectorName: sectorId === 'A' ? 'القطاع أ' : 'القطاع ب'
+        };
+    }).filter(r => r.item?.activity); // إزالة النتائج الفارغة
+
+    return deduplicateResults(mapped);
 }
 
 /**
@@ -185,7 +270,7 @@ function deduplicateResults(results) {
  * @param {object} questionType - نوع السؤال (اختياري)
  * @returns {string} HTML للرد
  */
-function handleDecision104Query(query, questionType) {
+async function handleDecision104Query(query, questionType) {
     let q = normalizeArabic(query).replace(/القطا\s+ع/g, 'القطاع').replace(/\s+/g, ' ').trim();
     console.log("🎯 محرك القرار 104: بدء المعالجة لـ:", query);
 
@@ -316,11 +401,11 @@ if (vectorActivityName && significantTerms.length === 0) {
     // تنفيذ البحث
     let results = [];
     if (searchScope === 'A') {
-        results = searchInDecision104EnhancedForSpecificSector(activityName, 'A');
+        results = await searchInDecision104EnhancedForSpecificSector(activityName, 'A');
     } else if (searchScope === 'B') {
-        results = searchInDecision104EnhancedForSpecificSector(activityName, 'B');
+        results = await searchInDecision104EnhancedForSpecificSector(activityName, 'B');
     } else {
-        results = searchInDecision104EnhancedForBothSectors(activityName);
+        results = await searchInDecision104EnhancedForBothSectors(activityName);
     }
 
     if (searchScope !== 'both') {
@@ -1009,3 +1094,4 @@ window.selectSpecificActivityInDecision104 = function(activityName, sector) {
 };
 
 console.log('✅ gpt_decision104.js - تم تحميله بنجاح مع فصل المسؤوليات.');
+
