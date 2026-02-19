@@ -1,6 +1,6 @@
 // gpt_agent.js
 /****************************************************************************
- * 🤖 GPT-Like Agent v11.0 - HYBRID SEMANTIC EDITION
+ * 🤖 GPT-Like Agent v10.0 - HYBRID SEMANTIC EDITION
  * 
  * ⚡ الميزات الثورية:
  * ✓ محرك دلالي هجين (HybridSearchV1) - بحث ذكي بتقنية E5 Embeddings
@@ -1228,18 +1228,30 @@ async function processUserQuery(query) {
                 // تعادل دلالي + لا يوجد مؤشر منطقة → تجاهل نتيجة areas
                 console.log(`⚠️ [حماية areas] تعادل دلالي (فارق ${(_scoreDiff*100).toFixed(1)}%) + لا مؤشر منطقة → تجاهل`);
             } else {
-                // ✅ إصلاح التعادل: فحص النتائج المتساوية أولاً قبل الاختيار المباشر
-                const _tiedAreas = vectorMatch._allResults || [];
+                // ✅ إصلاح التعادل المطور: فحص مزدوج (نقاط + أسماء)
                 const _topCosine = _areasScores[0]?.cosineScore || 0;
 
-                // استخراج كل النتائج المتساوية من areas فقط (فارق ≤ 1%)
+                // 1️⃣ فحص التعادل بالنقاط (فارق ≤ 3%)
                 const _tiedAreasFromSearch = _areasScores.filter(r =>
-                    Math.abs((r.cosineScore || 0) - _topCosine) <= 0.01
+                    (r.cosineScore || 0) > 0 &&
+                    Math.abs((r.cosineScore || 0) - _topCosine) <= 0.03
                 );
 
-                if (_tiedAreasFromSearch.length >= 2) {
-                    // ✅ يوجد تعادل → تفويض كامل لـ handleIndustrialQuery ليعرض الخيارات
-                    console.log(`🔀 [areas تعادل] وُجد ${_tiedAreasFromSearch.length} نتائج متساوية → تفويض لـ handleIndustrialQuery`);
+                // 2️⃣ فحص اسمي: هل كلمة البحث موجودة في أكثر من منطقة؟
+                const _queryKeyword = normalizeArabic(query)
+                    .replace(/(هل|منطقه|منطقة|صناعيه|صناعية|مناطق|يوجد|توجد|هناك)/g, '')
+                    .trim().split(/\s+/).filter(w => w.length > 2)[0] || '';
+                const _nameMatchesCount = _queryKeyword
+                    ? _areasScores.filter(r =>
+                        (r.cosineScore || 0) > 0 &&
+                        normalizeArabic(r.id || '').includes(_queryKeyword)
+                      ).length
+                    : 0;
+
+                const _isAmbiguous = _tiedAreasFromSearch.length >= 2 || _nameMatchesCount >= 2;
+
+                if (_isAmbiguous) {
+                    console.log(`🔀 [areas التباس] نقاط-متساوية=${_tiedAreasFromSearch.length} | اسم-متكرر=${_nameMatchesCount} → handleIndustrialQuery`);
                     const res = await handleIndustrialQuery(query, questionType, analysisContext, entities);
                     if (res && !res.includes('لم أجد')) return res;
                 } else {
@@ -1279,16 +1291,29 @@ async function processUserQuery(query) {
             console.log("🏭 مسار المناطق الجغرافية");
             const areaData = vectorMatch.data?.original_data;
 
-            // ✅ إصلاح التعادل: فحص النتائج المتساوية قبل الاختيار المباشر
+            // ✅ إصلاح التعادل المطور: فحص مزدوج (نقاط + أسماء)
             const _areasResultsLow = (searchResponse?.results || []).filter(r => r.dbName === 'areas');
             const _topCosineLow = _areasResultsLow[0]?.cosineScore || 0;
+
+            // فحص التعادل بالنقاط (فارق ≤ 3%)
             const _tiedAreasLow = _areasResultsLow.filter(r =>
-                Math.abs((r.cosineScore || 0) - _topCosineLow) <= 0.01
+                (r.cosineScore || 0) > 0 &&
+                Math.abs((r.cosineScore || 0) - _topCosineLow) <= 0.03
             );
 
-            if (_tiedAreasLow.length >= 2) {
-                // ✅ يوجد تعادل → تفويض كامل لـ handleIndustrialQuery ليعرض الخيارات
-                console.log(`🔀 [areas تعادل - مسار منخفض] ${_tiedAreasLow.length} نتائج متساوية → handleIndustrialQuery`);
+            // فحص اسمي
+            const _qKwLow = normalizeArabic(query)
+                .replace(/(هل|منطقه|منطقة|صناعيه|صناعية|مناطق|يوجد|توجد|هناك)/g, '')
+                .trim().split(/\s+/).filter(w => w.length > 2)[0] || '';
+            const _nameCountLow = _qKwLow
+                ? _areasResultsLow.filter(r =>
+                    (r.cosineScore || 0) > 0 &&
+                    normalizeArabic(r.id || '').includes(_qKwLow)
+                  ).length
+                : 0;
+
+            if (_tiedAreasLow.length >= 2 || _nameCountLow >= 2) {
+                console.log(`🔀 [areas التباس - مسار منخفض] نقاط=${_tiedAreasLow.length} | اسم=${_nameCountLow} → handleIndustrialQuery`);
                 const resAreaTied = await handleIndustrialQuery(query, questionType, analysisContext, entities);
                 if (resAreaTied) return resAreaTied;
             } else if (areaData && areaData.name) {
