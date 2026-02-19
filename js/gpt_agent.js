@@ -1,6 +1,6 @@
 // gpt_agent.js
 /****************************************************************************
- * 🤖 GPT-Like Agent v10.0 - HYBRID SEMANTIC EDITION
+ * 🤖 GPT-Like Agent v11.0 - HYBRID SEMANTIC EDITION
  * 
  * ⚡ الميزات الثورية:
  * ✓ محرك دلالي هجين (HybridSearchV1) - بحث ذكي بتقنية E5 Embeddings
@@ -911,6 +911,58 @@ async function processUserQuery(query) {
     const context = AgentMemory.getContext();
 
     // ═══════════════════════════════════════════════════════════
+    // 🔍 بوابة الكلمة الغامضة - اسم نشاط مفرد بدون سياق واضح
+    // عندما يكتب الباحث كلمة واحدة أو جملة قصيرة تمثل اسم نشاط
+    // لا يمكن توجيهها لقاعدة واحدة → ابحث في activities + decision104 معاً
+    // ═══════════════════════════════════════════════════════════
+    const _ambiguousTokens = q.trim().split(/\s+/).filter(w => w.length > 1);
+    const _isShortQuery = _ambiguousTokens.length <= 3;
+
+    // كلمات تدل على منطقة صناعية → تخرج من هذا المسار
+    const _hasAreaSignal = /(منطقه|منطقة|مناطق|صناعيه|صناعية|محافظه|محافظة|تبعيه|تبعية|ولايه|ولاية|فدان|مساحه|مساحة)/.test(q);
+    // كلمات تدل على القرار 104 صراحةً → تخرج من هذا المسار
+    const _hasDecisionSignal = /(قرار.*104|\b104\b|حوافز|اعفاء|قطاع\s*(أ|ا|ب))/.test(q);
+    // كلمات تدل على سؤال عن ترخيص صريح → تخرج من هذا المسار
+    const _hasLicenseSignal = /(ترخيص|تراخيص|رخصه|رخصة|متطلبات|شروط|اجراءات|جهه|جهة)/.test(q);
+
+    if (_isShortQuery && !_hasAreaSignal && !_hasDecisionSignal && !_hasLicenseSignal && !context) {
+        console.log(`🔍 [بوابة الغموض] كلمة/جملة قصيرة غير محددة: "${query}" ← بحث مزدوج في activities + decision104`);
+
+        const _ambCtx = (typeof analyzeContext === 'function') ? analyzeContext(query, questionType) : {};
+        const _ambEnt = (typeof extractEntities === 'function') ? extractEntities(query) : {};
+
+        // أ. البحث في قاعدة الأنشطة
+        const _actRes = await handleActivityQuery(query, questionType, _ambCtx, _ambEnt);
+
+        // ب. البحث في قاعدة القرار 104
+        let _dec104Res = null;
+        if (typeof handleDecision104Query === 'function') {
+            _dec104Res = handleDecision104Query(query, questionType);
+        }
+
+        // ج. إذا وجد كلاهما نتائج → اجمعهما في رد واحد
+        const _actFound = _actRes && !_actRes.includes('لم أجد') && !_actRes.includes('null');
+        const _decFound = _dec104Res && !_dec104Res.includes('لم أجد') && !_dec104Res.includes('null');
+
+        if (_actFound && _decFound) {
+            console.log("✅ [بوابة الغموض] عثر في activities + decision104 - عرض مزدوج");
+            return _actRes + `<div style="margin-top:16px; padding:10px; background:#e8f5e9; border-radius:8px; font-size:0.85rem; color:#1b5e20;">
+                🔎 تم الكشف أن هذا النشاط مدرج أيضاً في القرار 104
+            </div>` + _dec104Res;
+        }
+        if (_actFound) {
+            console.log("✅ [بوابة الغموض] عثر في activities فقط");
+            return _actRes;
+        }
+        if (_decFound) {
+            console.log("✅ [بوابة الغموض] عثر في decision104 فقط");
+            return _dec104Res;
+        }
+        // لم يجد في أي منهما → يكمل التدفق الطبيعي
+        console.log("⚠️ [بوابة الغموض] لم يعثر في activities أو decision104 - متابعة التدفق");
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // 🚪 بوابة النية الصريحة - أعلى أولوية مطلقة في النظام
     // عندما يصرح المستخدم بنوع سؤاله صراحةً لا نتجادل مع المحركات
     // ═══════════════════════════════════════════════════════════
@@ -1008,14 +1060,12 @@ async function processUserQuery(query) {
         }
         searchResponse = (window.hybridEngine && window.hybridEngine.isReady) ? await window.hybridEngine.search(query) : null;
         
-        // ج. البحث النصي بالتوازي (إن وُجد محرك نصي)
+        // ج. البحث النصي بالتوازي — NeuralSearch دالة مباشرة تحتاج (query, database)
         let keywordResults = null;
-        if (window.NeuralSearch && typeof window.NeuralSearch === 'function') {
+        if (typeof NeuralSearch === 'function' && typeof masterActivityDB !== 'undefined') {
             try {
-                if (window.NeuralSearch && typeof window.NeuralSearch.search === 'function') {
-                const nsResult = await window.NeuralSearch.search(query);
-                keywordResults = nsResult?.results || nsResult || null;
-                 }             
+                const nsResult = NeuralSearch(query, masterActivityDB, { minScore: 30 });
+                keywordResults = nsResult?.results || null;
                 console.log("🔤 نتائج المحرك النصي:", keywordResults?.length || 0);
             } catch (e) {
                 console.warn("⚠️ المحرك النصي غير متاح:", e.message);
@@ -1166,9 +1216,22 @@ async function processUserQuery(query) {
             const act = masterActivityDB.find(a => a.value === vectorMatch.id);
             if (act) { await AgentMemory.setActivity(act, query); return formatActivityResponse(act, questionType); }
         } else if (vectorTargetDB === 'areas') {
-            // [كما هي]
-            const area = industrialAreasData.find(a => a.name === vectorMatch.id);
-            if (area) { await AgentMemory.setIndustrial(area, query); return formatIndustrialResponse(area); }
+            // ✅ حماية: إذا كانت الثقة الدلالية تعادلية (فارق < 3% بين القواعد)
+            // لا نثق في اختيار areas وحدها - نتحقق أن السؤال فعلاً يتعلق بمنطقة جغرافية
+            const _areasScores = searchResponse?.results?.filter(r => r.dbName === 'areas') || [];
+            const _activitiesScores = searchResponse?.results?.filter(r => r.dbName === 'activities') || [];
+            const _topAreasScore = _areasScores[0]?.cosineScore || 0;
+            const _topActScore = _activitiesScores[0]?.cosineScore || 0;
+            const _scoreDiff = Math.abs(_topAreasScore - _topActScore);
+
+            if (_scoreDiff < 0.03 && !_hasAreaSignal) {
+                // تعادل دلالي + لا يوجد مؤشر منطقة → تجاهل نتيجة areas
+                console.log(`⚠️ [حماية areas] تعادل دلالي (فارق ${(_scoreDiff*100).toFixed(1)}%) + لا مؤشر منطقة → تجاهل`);
+            } else {
+                // [كما هي] - ثقة حقيقية في areas
+                const area = industrialAreasData.find(a => a.name === vectorMatch.id);
+                if (area) { await AgentMemory.setIndustrial(area, query); return formatIndustrialResponse(area); }
+            }
         }
    }
 
@@ -1962,4 +2025,3 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
-
