@@ -1,6 +1,6 @@
 // gpt_agent.js
 /****************************************************************************
- * 🤖 GPT-Like Agent v11.0 - HYBRID SEMANTIC EDITION
+ * 🤖 GPT-Like Agent v10.0 - HYBRID SEMANTIC EDITION
  * 
  * ⚡ الميزات الثورية:
  * ✓ محرك دلالي هجين (HybridSearchV1) - بحث ذكي بتقنية E5 Embeddings
@@ -934,15 +934,15 @@ async function processUserQuery(query) {
         // أ. البحث في قاعدة الأنشطة
         const _actRes = await handleActivityQuery(query, questionType, _ambCtx, _ambEnt);
 
-        // ب. البحث في قاعدة القرار 104
+        // ب. البحث في قاعدة القرار 104 - async دالة تحتاج await
         let _dec104Res = null;
         if (typeof handleDecision104Query === 'function') {
-            _dec104Res = handleDecision104Query(query, questionType);
+            _dec104Res = await Promise.resolve(handleDecision104Query(query, questionType));
         }
 
         // ج. إذا وجد كلاهما نتائج → اجمعهما في رد واحد
-        const _actFound = _actRes && !_actRes.includes('لم أجد') && !_actRes.includes('null');
-        const _decFound = _dec104Res && !_dec104Res.includes('لم أجد') && !_dec104Res.includes('null');
+        const _actFound = _actRes && typeof _actRes === 'string' && !_actRes.includes('لم أجد');
+        const _decFound = _dec104Res && typeof _dec104Res === 'string' && !_dec104Res.includes('لم أجد');
 
         if (_actFound && _decFound) {
             console.log("✅ [بوابة الغموض] عثر في activities + decision104 - عرض مزدوج");
