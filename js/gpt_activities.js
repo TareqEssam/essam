@@ -3,35 +3,82 @@ window.GPT_AGENT = window.GPT_AGENT || {};
 
 // ==================== معالج أسئلة الأنشطة - الإصدار الأصلي ====================
 async function handleActivityQuery(query, questionType, preComputedContext, preComputedEntities) {
-    if (typeof NeuralSearch === 'undefined' || typeof masterActivityDB === 'undefined') {
+    if (typeof masterActivityDB === 'undefined') {
         return "⚠️ نظام البحث عن الأنشطة غير متوفر حالياً.";
     }
 
     // ⭐ استخدام البيانات المحسوبة إن وُجدت
     const entities = preComputedEntities || extractEntities(query);
     const context = preComputedContext || analyzeContext(query, questionType);
+    const agentContext = AgentMemory.getContext();
 
     console.log("📋 معالج الأنشطة - سؤال:", query);
     console.log("🎯 الكيانات المستخدمة:", entities);
 
-    // ⭐ البحث بدون فلتر صارم - نثق في NeuralSearch
-    // 🆕 استخدام NeuralSearch مع دعم السياق
-    const contextBoost = ContextManager.getContextualBoost(query, 'activities');
-    const searchResults = NeuralSearch(query, masterActivityDB, {
-        minScore: contextBoost.boost > 1 ? 20 : 30 // نخفض الحد الأدنى إذا كان هناك سياق
-    });
+    // ════════════════════════════════════════════════════════════
+    // 🔍 المرحلة 1: البحث الدلالي (hybridEngine) + النصي (NeuralSearch)
+    // ════════════════════════════════════════════════════════════
 
-    console.log("🎯 دعم السياق:", contextBoost);
-    console.log(`🔍 نتائج البحث: ${searchResults.results.length} نتيجة`);
+    let semanticResults = [];
+    let keywordResults  = [];
 
-    if (searchResults.results && searchResults.results.length > 0) {
-        const topResult = searchResults.results[0];
+    // أ. البحث الدلالي — نستخدم hybridEngine.search() ونصفّي نتائج activities فقط
+    if (window.hybridEngine && window.hybridEngine.isReady) {
+        try {
+            const semanticResponse = await window.hybridEngine.search(query);
+            // نأخذ فقط النتائج المصنّفة كـ activities من القاعدة الموحدة
+            semanticResults = (semanticResponse?.results || []).filter(r => r.dbName === 'activities');
+            console.log(`🧠 نتائج دلالية (activities): ${semanticResults.length}`);
+        } catch (e) {
+            console.warn("⚠️ فشل البحث الدلالي:", e.message);
+        }
+    }
 
-        console.log(`🔍 نتائج البحث: ${searchResults.results.length} نشاط`);
-        console.log(`🎯 النتيجة الأولى: "${topResult.text}" - ثقة: ${topResult.finalScore}`);
+    // ب. البحث النصي — NeuralSearch دالة عادية تُستدعى مباشرةً
+    if (typeof NeuralSearch === 'function') {
+        try {
+            const contextBoost = ContextManager.getContextualBoost(query, 'activities');
+            const nsResult = NeuralSearch(query, masterActivityDB, {
+                minScore: contextBoost.boost > 1 ? 20 : 30
+            });
+            keywordResults = nsResult?.results || [];
+            console.log(`🔤 نتائج نصية (activities): ${keywordResults.length}`);
+        } catch (e) {
+            console.warn("⚠️ فشل البحث النصي:", e.message);
+        }
+    }
 
-        // ✅ فحص جديد: هل هناك عدة أنشطة متشابهة؟
-        const similarActivities = detectSimilarActivities(query, searchResults.results);
+    // ════════════════════════════════════════════════════════════
+    // 🏆 المرحلة 2: دمج النتائج بالـ Reranker أو Fallback
+    // ════════════════════════════════════════════════════════════
+
+    let finalResults = [];
+
+    if (window.resultReranker && (semanticResults.length > 0 || keywordResults.length > 0)) {
+        finalResults = window.resultReranker.rerank(
+            semanticResults,
+            keywordResults,
+            query,
+            agentContext
+        );
+        console.log(`✨ نتائج بعد Reranking: ${finalResults.length}`);
+    } else if (keywordResults.length > 0) {
+        // Fallback: البحث النصي فقط إذا لم يكن المحرك الدلالي أو Reranker متاحاً
+        finalResults = keywordResults;
+        console.log("⚠️ Fallback: استخدام النتائج النصية فقط");
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 🎯 المرحلة 3: منطق القرار — لم يتغيّر
+    // ════════════════════════════════════════════════════════════
+
+    if (finalResults && finalResults.length > 0) {
+        const topResult = finalResults[0];
+
+        console.log(`🎯 النتيجة الأولى: "${topResult.text}" - نقاط: ${topResult.finalScore}`);
+
+        // ✅ فحص: هل هناك عدة أنشطة متشابهة؟
+        const similarActivities = detectSimilarActivities(query, finalResults);
 
         if (similarActivities.length > 1) {
             console.log(`🔍 عثرت على ${similarActivities.length} أنشطة متشابهة`);
@@ -40,42 +87,36 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
                 name: r.text,
                 data: r
             })));
-
             return formatSimilarActivitiesChoice(query, similarActivities);
         }
 
-        // ✅ إذا كانت الثقة عالية جداً (950+) ونتيجة واحدة واضحة
+        // ✅ ثقة عالية جداً (950+)
         if (topResult.finalScore > 950) {
             await AgentMemory.setActivity(topResult, query);
             return formatActivityResponse(topResult, questionType);
         }
 
-        // ✅ إذا كانت الثقة عالية (800+) والفارق كبير مع الثانية
+        // ✅ ثقة عالية (800+) والفارق كبير مع الثانية
         if (topResult.finalScore > 800) {
-            if (searchResults.results.length === 1) {
+            if (finalResults.length === 1) {
                 await AgentMemory.setActivity(topResult, query);
                 return formatActivityResponse(topResult, questionType);
             }
-
-            const secondResult = searchResults.results[1];
-            const scoreDiff = topResult.finalScore - secondResult.finalScore;
-
+            const scoreDiff = topResult.finalScore - finalResults[1].finalScore;
             if (scoreDiff > 200) {
-                // الفارق كبير - النتيجة الأولى واضحة
                 await AgentMemory.setActivity(topResult, query);
                 return formatActivityResponse(topResult, questionType);
             }
         }
 
-        // ✅ إذا كانت الثقة متوسطة ويوجد أكثر من نتيجة
-        if (searchResults.results.length > 1 && topResult.finalScore > 300) {
-            const topResults = searchResults.results.slice(0, 3);
+        // ✅ ثقة متوسطة مع وجود أكثر من نتيجة
+        if (finalResults.length > 1 && topResult.finalScore > 300) {
+            const topResults = finalResults.slice(0, 3);
             AgentMemory.setClarification(topResults.map(r => ({
                 type: 'activity',
                 name: r.text,
                 data: r
             })));
-
             let html = `🤔 <strong>عثرت على نتائج متشابهة، أيهم تقصد؟</strong><br><br>`;
             topResults.forEach((r, i) => {
                 html += `<div class="choice-btn" onclick="resolveAmbiguity('activity', ${i})">
@@ -91,7 +132,6 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
 
     return null;
 }
-
 // ==================== 🆕 كاشف الأنشطة المتشابهة ====================
 function detectSimilarActivities(query, results) {
     if (!results || results.length <= 1) return results;
@@ -357,5 +397,6 @@ window.formatTechnicalNotes = formatTechnicalNotes;
 window.formatSuitableLocation = formatSuitableLocation;
 window.detectSimilarActivities = detectSimilarActivities;
 window.formatSimilarActivitiesChoice = formatSimilarActivitiesChoice;
+
 
 console.log('✅ gpt_activities.js - تم تحميله بنجاح (مستقل تماماً)');
