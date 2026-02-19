@@ -76,7 +76,7 @@ async function handleIndustrialQuery(query, questionType, preComputedContext, pr
     // 2. 🆕 سؤال Yes/No عن وجود منطقة معينة
     if (questionType.isYesNo && questionType.isAreaExistenceCheck) {
         console.log("❓ سؤال Yes/No عن وجود منطقة");
-        return handleAreaExistenceQuestion(query, entities, q, keywords);
+        return await handleAreaExistenceQuestion(query, entities, q, keywords);
     }
 
     // 3. سؤال عن موقع منطقة محددة
@@ -296,7 +296,8 @@ function cleanSearchKeyword(keyword) {
 }
 
 // معالج أسئلة Yes/No عن وجود منطقة - النسخة الاحترافية الشاملة
-function handleAreaExistenceQuestion(query, entities, normalizedQuery, keywords) {
+async function handleAreaExistenceQuestion(query, entities, normalizedQuery, keywords) {
+
     console.log("❓ فحص وجود منطقة:", query);
 
     // 1. البحث الهجين للحصول على النتائج الأولية (دلالي + نصي)
@@ -868,3 +869,4 @@ window.formatIndustrialMapLink = formatIndustrialMapLink;
 
 
 console.log('✅ gpt_areas.js - الإصدار المُصحح والمستقل بعد إزالة التكرارات تم تحميله بنجاح!');
+
