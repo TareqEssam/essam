@@ -27,7 +27,8 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
         try {
             const semanticResponse = await window.hybridEngine.search(query);
             // نأخذ فقط النتائج المصنّفة كـ activities من القاعدة الموحدة
-            semanticResults = (semanticResponse?.results || []).filter(r => r.dbName === 'activities');
+            
+            semanticResults = semanticResponse?.resultsByDB?.['activities'] || [];
             console.log(`🧠 نتائج دلالية (activities): ${semanticResults.length}`);
         } catch (e) {
             console.warn("⚠️ فشل البحث الدلالي:", e.message);
@@ -400,3 +401,4 @@ window.formatSimilarActivitiesChoice = formatSimilarActivitiesChoice;
 
 
 console.log('✅ gpt_activities.js - تم تحميله بنجاح (مستقل تماماً)');
+
