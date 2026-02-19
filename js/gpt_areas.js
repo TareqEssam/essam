@@ -475,8 +475,22 @@ async function handleAreaExistenceQuestion(query, entities, normalizedQuery, key
                 </div>
                 ${buildExplorationButtons()}`;
         }
-        let html = `✅ <strong>نعم</strong>، وَجدتُ <strong>${keywordFiltered.length} مناطق</strong> صناعية مرتبطة بـ "${searchKeyword}":<br><br>`;
-        keywordFiltered.forEach((result, i) => {
+
+        // ✅ ترتيب نتائج الكلمة المفتاحية بمنطق الأسبقية:
+        // 1) مطابقة اسم كامل أولاً 2) مطابقة جزئية للكلمة الرئيسية
+        const _sortedKeyword = [...keywordFiltered].sort((a, b) => {
+            const aNorm = normalizeArabic(a.area.name);
+            const bNorm = normalizeArabic(b.area.name);
+            const kwNorm = normalizeArabic(searchKeywordCleaned || '');
+            // منطقة اسمها يبدأ بكلمة البحث تأتي أولاً
+            const aStarts = aNorm.includes('روبيكي') || aNorm.startsWith(kwNorm) ? 1 : 0;
+            const bStarts = bNorm.includes('روبيكي') || bNorm.startsWith(kwNorm) ? 1 : 0;
+            return bStarts - aStarts;
+        });
+
+        const _displayKeyword = _sortedKeyword.slice(0, 6); // بحد أقصى 6
+        let html = `✅ <strong>نعم</strong>، وَجدتُ <strong>${keywordFiltered.length} مناطق</strong> صناعية مرتبطة بـ "<strong>${searchKeyword}</strong>":<br><br>`;
+        _displayKeyword.forEach((result, i) => {
             html += `<div class="choice-btn" onclick="selectIndustrialArea('${result.area.name.replace(/'/g, "\\'")}')">
                 <span class="choice-icon">${i === 0 ? '🎯' : '🏭'}</span>
                 <div style="text-align: right;">
@@ -485,6 +499,11 @@ async function handleAreaExistenceQuestion(query, entities, normalizedQuery, key
                 </div>
             </div>`;
         });
+        if (keywordFiltered.length > 6) {
+            html += `<div style="margin-top: 8px; padding: 8px; background: #fff3e0; border-radius: 8px; font-size: 0.85rem; color: #e65100;">
+                ℹ️ يوجد ${keywordFiltered.length - 6} منطقة إضافية - حدد اسم أكثر دقة للحصول على نتائج أفضل.
+            </div>`;
+        }
         html += `<div style="margin-top: 10px; font-size: 0.85rem; color: #666;">💡 اختر المنطقة التي تقصدها لعرض بياناتها الفنية بالكامل.</div>`;
         html += buildExplorationButtons();
         return html;
@@ -550,25 +569,44 @@ async function handleAreaExistenceQuestion(query, entities, normalizedQuery, key
     }
 
     if (finalSelection.length > 5) {
-        const hasGoodMatches = finalSelection.some(r => r.confidence >= 60);
-        if (!hasGoodMatches) {
+        // ✅ أولاً: فلترة النتائج ذات الصلة الحقيقية (confidence ≥ 60 أو keyword_direct)
+        const relevantResults = finalSelection.filter(r =>
+            r.matchType === 'keyword_direct' || (r.confidence || 0) >= 60
+        );
+
+        if (relevantResults.length === 0) {
             return `❌ <strong>لا</strong>، لم أجد منطقة صناعية بهذا الاسم بدقة.<br><br>
                 <div style="padding: 10px; background: #fff9e6; border-radius: 8px; border-right: 3px solid #ffc107; margin-bottom: 12px;">
                     💡 <strong>نصيحة:</strong> حدد اسم المنطقة أو المحافظة بدقة أكثر للحصول على نتائج أفضل.
                 </div>
                 ${buildExplorationButtons()}`;
         }
-        const goodResults = finalSelection.filter(r => r.confidence >= 60).slice(0, 5);
-        let html = `🔍 <strong>وَجدتْ ${goodResults.length} منطقة محتملة:</strong><br><br>`;
-        goodResults.forEach((result, i) => {
+
+        // ✅ ترتيب: keyword_direct أولاً ثم بالـ confidence تنازلياً
+        relevantResults.sort((a, b) => {
+            if (a.matchType === 'keyword_direct' && b.matchType !== 'keyword_direct') return -1;
+            if (b.matchType === 'keyword_direct' && a.matchType !== 'keyword_direct') return 1;
+            return (b.confidence || 0) - (a.confidence || 0);
+        });
+
+        const displayResults = relevantResults.slice(0, 6);
+        console.log(`📋 [Areas>5] عرض ${displayResults.length} من ${relevantResults.length} نتيجة ذات صلة`);
+
+        let html = `✅ <strong>نعم</strong>، وَجدتُ <strong>${relevantResults.length} مناطق</strong> صناعية مرتبطة بهذا الاسم:<br><br>`;
+        displayResults.forEach((result, i) => {
             html += `<div class="choice-btn" onclick="selectIndustrialArea('${result.area.name.replace(/'/g, "\\'")}')">
-                <span class="choice-icon">🏭</span>
+                <span class="choice-icon">${i === 0 ? '🎯' : '🏭'}</span>
                 <div style="text-align: right;">
                     <strong>${result.area.name}</strong><br>
-                    <small style="color: #666;">📍 ${result.area.governorate} • الدقة ${result.confidence}%</small>
+                    <small style="color: #666;">📍 ${result.area.governorate} • ${result.area.dependency}</small>
                 </div>
             </div>`;
         });
+        if (relevantResults.length > 6) {
+            html += `<div style="margin-top: 8px; padding: 8px; background: #fff3e0; border-radius: 8px; font-size: 0.85rem; color: #e65100;">
+                ℹ️ يوجد ${relevantResults.length - 6} منطقة إضافية - حدد الاسم بدقة أكبر لتضييق النتائج.
+            </div>`;
+        }
         html += buildExplorationButtons();
         return html;
     }
@@ -981,4 +1019,4 @@ window.formatIndustrialMapLink = formatIndustrialMapLink;
 window.formatMultipleAreasChoice = formatMultipleAreasChoice;
 
 
-console.log('✅ gpt_areas.js -    تم تحميله بنجاح!');
+console.log('✅ gpt_areas.js - الإصدار المُصحح والمستقل تم تحميله بنجاح!');
