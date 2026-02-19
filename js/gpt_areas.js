@@ -237,12 +237,17 @@ if (questionType.isAreaList && entities.hasGovernorate) {
         const resolvedAreas = [];
         for (const r of hybridResults) {
             const rawData = r?.data?.original_data || r?.originalData || r;
-            const areaName = rawData?.اسم_المنطقة || rawData?.name || rawData?.text || '';
+            const areaName = rawData?.اسم_المنطقة || rawData?.name || rawData?.text || r?.id || '';
             const found = industrialAreasData.find(a =>
                 normalizeArabic(a.name) === normalizeArabic(areaName)
             ) || (areaName ? rawData : null);
             if (found && found.name) {
-                resolvedAreas.push({ area: found, score: r.finalScore || r.score || 0 });
+                // ✅ الاحتفاظ بـ cosineScore الخام لمقارنة التعادل بدقة
+                resolvedAreas.push({
+                    area: found,
+                    score: r.finalScore || r.score || 0,
+                    cosineScore: r.cosineScore || r.semanticScore || 0
+                });
             }
         }
 
@@ -260,6 +265,7 @@ if (questionType.isAreaList && entities.hasGovernorate) {
         } else {
             // ── خطوة 2: هل الكلمة المبحوث عنها موجودة في أكثر من منطقة؟ ──
             const topScore = resolvedAreas[0].score;
+            const topCosine = resolvedAreas[0].cosineScore || 0;
             const queryWords = normalizeArabic(query)
                 .replace(/(هل|منطقه|منطقة|صناعيه|صناعية|مناطق)/g, '')
                 .trim()
@@ -271,10 +277,13 @@ if (questionType.isAreaList && entities.hasGovernorate) {
                 queryWords.some(w => normalizeArabic(r.area.name).includes(w))
             );
 
-            // مناطق متقاربة في النقاط (فارق ≤ 5%)
-            const tiedResults = resolvedAreas.filter(r =>
-                topScore === 0 || Math.abs(r.score - topScore) / Math.max(topScore, 0.001) <= 0.05
-            );
+            // ✅ تعادل دلالي (فارق cosine ≤ 1%) أو تعادل في finalScore (≤ 5%)
+            const tiedResults = resolvedAreas.filter(r => {
+                if (topCosine > 0) {
+                    return Math.abs((r.cosineScore || 0) - topCosine) <= 0.01;
+                }
+                return topScore === 0 || Math.abs(r.score - topScore) / Math.max(topScore, 0.001) <= 0.05;
+            });
 
             const ambiguousCandidates = nameMatches.length >= 2
                 ? nameMatches
@@ -972,4 +981,4 @@ window.formatIndustrialMapLink = formatIndustrialMapLink;
 window.formatMultipleAreasChoice = formatMultipleAreasChoice;
 
 
-console.log('✅ gpt_areas.js - الإصدار المُصحح والمستقل تم تحميله بنجاح!');
+console.log('✅ gpt_areas.js -    تم تحميله بنجاح!');
