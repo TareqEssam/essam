@@ -1,6 +1,6 @@
 // gpt_agent.js
 /****************************************************************************
- * 🤖 GPT-Like Agent v10.0 - HYBRID SEMANTIC EDITION
+ * 🤖 GPT-Like Agent v11.0 - HYBRID SEMANTIC EDITION
  * 
  * ⚡ الميزات الثورية:
  * ✓ محرك دلالي هجين (HybridSearchV1) - بحث ذكي بتقنية E5 Embeddings
@@ -1228,9 +1228,25 @@ async function processUserQuery(query) {
                 // تعادل دلالي + لا يوجد مؤشر منطقة → تجاهل نتيجة areas
                 console.log(`⚠️ [حماية areas] تعادل دلالي (فارق ${(_scoreDiff*100).toFixed(1)}%) + لا مؤشر منطقة → تجاهل`);
             } else {
-                // [كما هي] - ثقة حقيقية في areas
-                const area = industrialAreasData.find(a => a.name === vectorMatch.id);
-                if (area) { await AgentMemory.setIndustrial(area, query); return formatIndustrialResponse(area); }
+                // ✅ إصلاح التعادل: فحص النتائج المتساوية أولاً قبل الاختيار المباشر
+                const _tiedAreas = vectorMatch._allResults || [];
+                const _topCosine = _areasScores[0]?.cosineScore || 0;
+
+                // استخراج كل النتائج المتساوية من areas فقط (فارق ≤ 1%)
+                const _tiedAreasFromSearch = _areasScores.filter(r =>
+                    Math.abs((r.cosineScore || 0) - _topCosine) <= 0.01
+                );
+
+                if (_tiedAreasFromSearch.length >= 2) {
+                    // ✅ يوجد تعادل → تفويض كامل لـ handleIndustrialQuery ليعرض الخيارات
+                    console.log(`🔀 [areas تعادل] وُجد ${_tiedAreasFromSearch.length} نتائج متساوية → تفويض لـ handleIndustrialQuery`);
+                    const res = await handleIndustrialQuery(query, questionType, analysisContext, entities);
+                    if (res && !res.includes('لم أجد')) return res;
+                } else {
+                    // نتيجة واحدة واضحة → عرض مباشر
+                    const area = industrialAreasData.find(a => a.name === vectorMatch.id);
+                    if (area) { await AgentMemory.setIndustrial(area, query); return formatIndustrialResponse(area); }
+                }
             }
         }
    }
@@ -1262,13 +1278,27 @@ async function processUserQuery(query) {
         case 'areas':
             console.log("🏭 مسار المناطق الجغرافية");
             const areaData = vectorMatch.data?.original_data;
-            if (areaData && areaData.name) {
+
+            // ✅ إصلاح التعادل: فحص النتائج المتساوية قبل الاختيار المباشر
+            const _areasResultsLow = (searchResponse?.results || []).filter(r => r.dbName === 'areas');
+            const _topCosineLow = _areasResultsLow[0]?.cosineScore || 0;
+            const _tiedAreasLow = _areasResultsLow.filter(r =>
+                Math.abs((r.cosineScore || 0) - _topCosineLow) <= 0.01
+            );
+
+            if (_tiedAreasLow.length >= 2) {
+                // ✅ يوجد تعادل → تفويض كامل لـ handleIndustrialQuery ليعرض الخيارات
+                console.log(`🔀 [areas تعادل - مسار منخفض] ${_tiedAreasLow.length} نتائج متساوية → handleIndustrialQuery`);
+                const resAreaTied = await handleIndustrialQuery(query, questionType, analysisContext, entities);
+                if (resAreaTied) return resAreaTied;
+            } else if (areaData && areaData.name) {
                 const area = industrialAreasData.find(a => a.name === areaData.name);
                 if (area) {
                     await AgentMemory.setIndustrial(area, query);
                     return formatIndustrialResponse(area);
                 }
             }
+
             // Fallback: البحث بالنص
             const resArea = await handleIndustrialQuery(originalText, questionType, analysisContext, entities);
             if (resArea) return resArea;
