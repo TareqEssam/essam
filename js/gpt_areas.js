@@ -184,15 +184,76 @@ if (questionType.isAreaList && entities.hasGovernorate) {
         }
     }
 
-    // 11. البحث التقليدي عن منطقة محددة باستخدام الدالة العامة
-    console.log("🔍 البحث التقليدي عن منطقة");
-    const foundArea = window.searchIndustrialZonesWithNeural(query);
-    if (foundArea) {
-        AgentMemory.setIndustrial(foundArea, query);
-        if (questionType.isYesNo) {
-            return `✅ نعم، <strong>${foundArea.name}</strong> هي منطقة صناعية معتمدة.`;
+   // 11. البحث الهجين عن منطقة محددة (دلالي + نصي + Reranker)
+    console.log("🔍 البحث الهجين عن منطقة");
+    const agentContext = AgentMemory.getContext();
+
+    let semanticResults = [];
+    let keywordResults  = [];
+
+    // أ. البحث الدلالي — نصفّي نتائج areas فقط
+    if (window.hybridEngine && window.hybridEngine.isReady) {
+        try {
+            const semanticResponse = await window.hybridEngine.search(query);
+            semanticResults = (semanticResponse?.results || []).filter(r => r.dbName === 'areas');
+            console.log(`🧠 نتائج دلالية (areas): ${semanticResults.length}`);
+        } catch (e) {
+            console.warn("⚠️ فشل البحث الدلالي:", e.message);
         }
-        return formatIndustrialResponse(foundArea);
+    }
+
+    // ب. البحث النصي — NeuralSearch مع industrialAreasData
+    if (typeof NeuralSearch === 'function') {
+        try {
+            const nsResult = NeuralSearch(query, industrialAreasData, { minScore: 50 });
+            keywordResults = nsResult?.results || [];
+            console.log(`🔤 نتائج نصية (areas): ${keywordResults.length}`);
+        } catch (e) {
+            console.warn("⚠️ فشل البحث النصي:", e.message);
+        }
+    }
+
+    // ج. دمج النتائج بالـ Reranker أو Fallback
+    let hybridResults = [];
+    if (window.resultReranker && (semanticResults.length > 0 || keywordResults.length > 0)) {
+        hybridResults = window.resultReranker.rerank(
+            semanticResults,
+            keywordResults,
+            query,
+            agentContext
+        );
+        console.log(`✨ نتائج areas بعد Reranking: ${hybridResults.length}`);
+    } else if (keywordResults.length > 0) {
+        hybridResults = keywordResults;
+        console.log("⚠️ Fallback: استخدام النتائج النصية فقط");
+    }
+
+    // د. استخراج أفضل نتيجة وإعادة التحقق عبر industrialAreasData
+    if (hybridResults.length > 0) {
+        const topHybrid = hybridResults[0];
+        // نحاول استخراج originalData من نتيجة الـ Reranker
+        const rawData = topHybrid?.data?.original_data || topHybrid?.originalData || topHybrid;
+        const foundArea = industrialAreasData.find(a =>
+            normalizeArabic(a.name) === normalizeArabic(rawData?.اسم_المنطقة || rawData?.name || '')
+        ) || (rawData?.name ? rawData : null);
+
+        if (foundArea) {
+            AgentMemory.setIndustrial(foundArea, query);
+            if (questionType.isYesNo) {
+                return `✅ نعم، <strong>${foundArea.name}</strong> هي منطقة صناعية معتمدة.`;
+            }
+            return formatIndustrialResponse(foundArea);
+        }
+    }
+
+    // هـ. Fallback أخير: searchIndustrialZonesWithNeural (النصي القديم كشبكة أمان)
+    const foundAreaFallback = window.searchIndustrialZonesWithNeural(query);
+    if (foundAreaFallback) {
+        AgentMemory.setIndustrial(foundAreaFallback, query);
+        if (questionType.isYesNo) {
+            return `✅ نعم، <strong>${foundAreaFallback.name}</strong> هي منطقة صناعية معتمدة.`;
+        }
+        return formatIndustrialResponse(foundAreaFallback);
     }
 
     // === المستوى 5: الحالات الخاصة ===
@@ -238,16 +299,47 @@ function cleanSearchKeyword(keyword) {
 function handleAreaExistenceQuestion(query, entities, normalizedQuery, keywords) {
     console.log("❓ فحص وجود منطقة:", query);
 
-    // 1. استخدام NeuralSearch للحصول على النتائج الأولية
-    const neuralResults = NeuralSearch(query, industrialAreasData, { minScore: 50 });
-    const searchResults = neuralResults.results.map(r => ({
-        area: r.originalData,
-        confidence: Math.min(Math.round((r.finalScore / 10)), 100),
-        score: r.finalScore,
-        matchType: r.matches.length > 0 ? r.matches[0].type : 'unknown'
-    }));
+    // 1. البحث الهجين للحصول على النتائج الأولية (دلالي + نصي)
+    let neuralResultsList = [];
 
-    console.log(`🔍 نتائج البحث العصبي الأولية: ${searchResults.length} منطقة`);
+    // أ. البحث الدلالي أولاً إن كان المحرك جاهزاً
+    if (window.hybridEngine && window.hybridEngine.isReady) {
+        try {
+            const semanticResponse = await window.hybridEngine.search(query);
+            const semanticAreas = (semanticResponse?.results || []).filter(r => r.dbName === 'areas');
+            neuralResultsList.push(...semanticAreas.map(r => ({
+                area: r.data?.original_data || r.data || r,
+                confidence: Math.min(Math.round((r.cosineScore || 0) * 100), 100),
+                score: r.score || r.cosineScore || 0,
+                matchType: 'semantic'
+            })));
+        } catch (e) {
+            console.warn("⚠️ فشل البحث الدلالي في handleAreaExistenceQuestion:", e.message);
+        }
+    }
+
+    // ب. البحث النصي ودمج نتائجه مع الدلالية
+    if (typeof NeuralSearch === 'function') {
+        try {
+            const nsResult = NeuralSearch(query, industrialAreasData, { minScore: 50 });
+            (nsResult?.results || []).forEach(r => {
+                if (!neuralResultsList.some(n => n.area?.name === (r.originalData?.name || r.text))) {
+                    neuralResultsList.push({
+                        area: r.originalData || r,
+                        confidence: Math.min(Math.round((r.finalScore / 10)), 100),
+                        score: r.finalScore,
+                        matchType: r.matches?.length > 0 ? r.matches[0].type : 'keyword'
+                    });
+                }
+            });
+        } catch (e) {
+            console.warn("⚠️ فشل البحث النصي في handleAreaExistenceQuestion:", e.message);
+        }
+    }
+
+    const searchResults = neuralResultsList;
+    console.log(`🔍 نتائج البحث الهجين الأولية: ${searchResults.length} منطقة`);
+    
 
     // === 🧠 استخراج الكلمة المفتاحية
     const extractSearchKeyword = (q) => {
@@ -773,5 +865,6 @@ function formatSingleAreaResponse(area, areaName) {
 window.handleIndustrialQuery = handleIndustrialQuery;
 window.formatIndustrialResponse = formatIndustrialResponse;
 window.formatIndustrialMapLink = formatIndustrialMapLink;
+
 
 console.log('✅ gpt_areas.js - الإصدار المُصحح والمستقل بعد إزالة التكرارات تم تحميله بنجاح!');
