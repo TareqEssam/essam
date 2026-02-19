@@ -1,7 +1,7 @@
 /****************************************************************************
  * 🏆 ResultReranker.js - خوارزمية إعادة الترتيب الذكية
  * 
- * المهام:
+ * المــهام:
  * ✅ دمج نتائج المحرك الدلالي والنصي
  * ✅ إعادة ترتيب بناءً على معايير متعددة
  * ✅ تعزيز النتائج بناءً على السياق
@@ -79,8 +79,11 @@ class ResultReranker {
         
         // إضافة النتائج الدلالية
         semanticResults.forEach((result, index) => {
-            resultsMap.set(result.id, {
+            // ✅ توحيد المفتاح: NeuralSearch تستخدم value، HybridSearch تستخدم id
+            const key = result.id ?? result.value ?? `sem_${index}`;
+            resultsMap.set(key, {
                 ...result,
+                id: key,
                 semanticScore: result.score || result.cosineScore || 0,
                 semanticRank: index + 1,
                 keywordScore: 0,
@@ -91,20 +94,23 @@ class ResultReranker {
         
         // دمج النتائج النصية
         keywordResults.forEach((result, index) => {
-            const existing = resultsMap.get(result.id);
+            // ✅ توحيد المفتاح
+            const key = result.id ?? result.value ?? `kw_${index}`;
+            const existing = resultsMap.get(key);
             
             if (existing) {
                 // النتيجة موجودة في كلا المصدرين (hybrid)
-                existing.keywordScore = result.score || 0;
+                existing.keywordScore = result.score || result.finalScore || 0;
                 existing.keywordRank = index + 1;
                 existing.source = 'hybrid';
             } else {
                 // نتيجة فقط من المحرك النصي
-                resultsMap.set(result.id, {
+                resultsMap.set(key, {
                     ...result,
+                    id: key,
                     semanticScore: 0,
                     semanticRank: null,
-                    keywordScore: result.score || 0,
+                    keywordScore: result.score || result.finalScore || 0,
                     keywordRank: index + 1,
                     source: 'keyword'
                 });
