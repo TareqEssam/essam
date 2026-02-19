@@ -230,16 +230,68 @@ if (questionType.isAreaList && entities.hasGovernorate) {
         console.log("⚠️ Fallback: استخدام النتائج النصية فقط");
     }
 
-    // د. استخراج أفضل نتيجة وإعادة التحقق عبر industrialAreasData
+    // د. استخراج النتائج وفحص التعادل قبل الاختيار
     if (hybridResults.length > 0) {
-        const topHybrid = hybridResults[0];
-        // نحاول استخراج originalData من نتيجة الـ Reranker
-        const rawData = topHybrid?.data?.original_data || topHybrid?.originalData || topHybrid;
-        const foundArea = industrialAreasData.find(a =>
-            normalizeArabic(a.name) === normalizeArabic(rawData?.اسم_المنطقة || rawData?.name || '')
-        ) || (rawData?.name ? rawData : null);
 
-        if (foundArea) {
+        // ── خطوة 1: تحويل كل نتائج Reranker إلى مناطق حقيقية ──
+        const resolvedAreas = [];
+        for (const r of hybridResults) {
+            const rawData = r?.data?.original_data || r?.originalData || r;
+            const areaName = rawData?.اسم_المنطقة || rawData?.name || rawData?.text || '';
+            const found = industrialAreasData.find(a =>
+                normalizeArabic(a.name) === normalizeArabic(areaName)
+            ) || (areaName ? rawData : null);
+            if (found && found.name) {
+                resolvedAreas.push({ area: found, score: r.finalScore || r.score || 0 });
+            }
+        }
+
+        if (resolvedAreas.length === 0) {
+            // لم نجد أي منطقة - نكمل للـ Fallback
+        } else if (resolvedAreas.length === 1) {
+            // نتيجة واحدة واضحة
+            const foundArea = resolvedAreas[0].area;
+            AgentMemory.setIndustrial(foundArea, query);
+            if (questionType.isYesNo) {
+                return `✅ نعم، <strong>${foundArea.name}</strong> هي منطقة صناعية معتمدة.`;
+            }
+            return formatIndustrialResponse(foundArea);
+
+        } else {
+            // ── خطوة 2: هل الكلمة المبحوث عنها موجودة في أكثر من منطقة؟ ──
+            const topScore = resolvedAreas[0].score;
+            const queryWords = normalizeArabic(query)
+                .replace(/(هل|منطقه|منطقة|صناعيه|صناعية|مناطق)/g, '')
+                .trim()
+                .split(/\s+/)
+                .filter(w => w.length > 2);
+
+            // مناطق تحتوي على كلمة البحث في اسمها
+            const nameMatches = resolvedAreas.filter(r =>
+                queryWords.some(w => normalizeArabic(r.area.name).includes(w))
+            );
+
+            // مناطق متقاربة في النقاط (فارق ≤ 5%)
+            const tiedResults = resolvedAreas.filter(r =>
+                topScore === 0 || Math.abs(r.score - topScore) / Math.max(topScore, 0.001) <= 0.05
+            );
+
+            const ambiguousCandidates = nameMatches.length >= 2
+                ? nameMatches
+                : tiedResults.length >= 2
+                    ? tiedResults
+                    : null;
+
+            console.log(`🔍 [Areas Ambiguity] nameMatches=${nameMatches.length} | tied=${tiedResults.length} | سيعرض=${ambiguousCandidates?.length || 1}`);
+
+            if (ambiguousCandidates && ambiguousCandidates.length >= 2) {
+                const limited = ambiguousCandidates.slice(0, 6);
+                console.log(`🤔 [Areas Ambiguity] عرض ${limited.length} خيارات للمستخدم`);
+                return formatMultipleAreasChoice(query, limited);
+            }
+
+            // نتيجة واضحة
+            const foundArea = resolvedAreas[0].area;
             AgentMemory.setIndustrial(foundArea, query);
             if (questionType.isYesNo) {
                 return `✅ نعم، <strong>${foundArea.name}</strong> هي منطقة صناعية معتمدة.`;
@@ -864,12 +916,60 @@ function formatSingleAreaResponse(area, areaName) {
     return formatIndustrialResponse(area); // يمكن استخدام نفس التنسيق
 }
 
+// ==================== 🆕 عرض خيارات عند تعدد المناطق ====================
+/**
+ * يُستدعى عندما يبحث المستخدم بكلمة موجودة في أكثر من منطقة
+ * أو عندما تكون النتائج متعادلة في النقاط
+ * @param {string} query - السؤال الأصلي
+ * @param {Array} candidates - [{area, score}, ...]
+ */
+function formatMultipleAreasChoice(query, candidates) {
+    const count = candidates.length;
+
+    let html = `
+    <div class="info-card" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border-left-color: #ff9800;">
+        <div class="info-card-header" style="color: #e65100;">
+            🔍 وجدتُ ${count} مناطق تطابق بحثك
+        </div>
+        <div class="info-card-content" style="color: #bf360c;">
+            يرجى تحديد المنطقة المقصودة بالضبط:
+        </div>
+    </div>
+    <div style="margin-top: 8px;">`;
+
+    candidates.forEach((candidate, i) => {
+        const area = candidate.area;
+        const gov  = area.governorate ? `📍 ${area.governorate}` : '';
+        const dep  = area.dependency  ? ` • 🏛️ ${area.dependency}` : '';
+        const safeName = area.name.replace(/'/g, "\\'");
+
+        html += `
+        <div class="choice-btn" onclick="selectIndustrialArea('${safeName}')"
+             style="margin: 8px 0; padding: 12px 16px; text-align: right;">
+            <span class="choice-icon">${i === 0 ? '🎯' : '🏭'}</span>
+            <div style="display: inline-block; width: calc(100% - 40px);">
+                <strong>${area.name}</strong>
+                <br>
+                <small style="color: #666;">${gov}${dep}</small>
+            </div>
+        </div>`;
+    });
+
+    html += `
+    </div>
+    <div style="margin-top: 12px; padding: 10px; background: #e3f2fd;
+                border-radius: 8px; font-size: 0.85rem; color: #0d47a1;">
+        💡 اختر المنطقة المطلوبة للاطلاع على تفاصيلها الكاملة
+    </div>`;
+
+    return html;
+}
+
 // ==================== تصدير الدوال العامة ====================
 window.handleIndustrialQuery = handleIndustrialQuery;
 window.formatIndustrialResponse = formatIndustrialResponse;
 window.formatIndustrialMapLink = formatIndustrialMapLink;
+window.formatMultipleAreasChoice = formatMultipleAreasChoice;
 
 
-console.log('✅ gpt_areas.js - الإصدار المُصحح والمستقل بعد إزالة التكرارات تم تحميله بنجاح!');
-
-
+console.log('✅ gpt_areas.js - الإصدار المُصحح والمستقل تم تحميله بنجاح!');
