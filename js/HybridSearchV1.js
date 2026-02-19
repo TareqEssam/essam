@@ -468,82 +468,89 @@ if (decisionWins) {
     }
     
     async search(query, options = {}) {
-        if (!this.isReady) await this.initialize();
-        
-        const { topK = 5 } = options;
-        
-        console.log(`\n🔍 Query: "${query}"`);
-        console.log(`🔧 Normalized: "${this.normalizeArabicText(query)}"`);
-        
-        const refinedQuery = await this.prepareQuery(query);
-        const queryVector = await this.embed(refinedQuery);
-        const targetDatabases = await this.classifyIntent(refinedQuery, queryVector);
-        
-        let allResults = [];
-        
-        for (const dbName of targetDatabases) {
-            const db = this.databases[dbName];
-            if (!db || db.length === 0) {
-                console.warn(`⚠️ Empty: ${dbName}`);
-                continue;
-            }
-            
-            console.log(`🔎 Searching [${dbName}] (${db.length} items)...`);
-            
-            const vectorResults = this.vectorSearch(queryVector, db, 20);
-            
-            const keywordResults = db
-                .map(item => ({
-                    id: item.id,
-                    score: this.bm25Score(refinedQuery, item, dbName),
-                    data: item
-                }))
-                .filter(r => r.score > 0)
-                .sort((a, b) => b.score - a.score)
-                .slice(0, 20);
-            
-            const combined = this.rerankRRF(vectorResults, keywordResults);
-            combined.forEach(r => r.dbName = dbName);
-            
-            allResults.push(...combined);
+    if (!this.isReady) await this.initialize();
+    
+    // ✅ رفع topK لضمان إرسال نتائج كافية لكل قاعدة للملفات المتخصصة
+    const { topK = 10 } = options;
+    
+    console.log(`\n🔍 Query: "${query}"`);
+    console.log(`🔧 Normalized: "${this.normalizeArabicText(query)}"`);
+    
+    const refinedQuery = await this.prepareQuery(query);
+    const queryVector = await this.embed(refinedQuery);
+    const targetDatabases = await this.classifyIntent(refinedQuery, queryVector);
+    
+    let allResults = [];
+    // ✅ تخزين نتائج كل قاعدة منفردةً لتيسير الفلترة في الملفات المتخصصة
+    const resultsByDB = {};
+    
+    for (const dbName of targetDatabases) {
+        const db = this.databases[dbName];
+        if (!db || db.length === 0) {
+            console.warn(`⚠️ Empty: ${dbName}`);
+            continue;
         }
         
-        const sortedResults = allResults.sort((a, b) => b.score - a.score);
-        const finalResults = sortedResults.slice(0, topK);
+        console.log(`🔎 Searching [${dbName}] (${db.length} items)...`);
         
-        console.log(`✅ Found ${finalResults.length} results (from ${allResults.length})`);
-        finalResults.forEach((r, i) => {
-            console.log(`${i === 0 ? '🏆' : `${i+1}.`} ${r.id} | النشاط: ${r.data?.original_data?.النشاط_المحدد || r.data?.text} | Cosine: ${Math.round((r.cosineScore || 0) * 100)}% [${r.dbName}]`);
-        });
+        const vectorResults = this.vectorSearch(queryVector, db, 20);
         
-        const topCosineScore = finalResults[0]?.cosineScore || 0;
-
-        // كشف النتائج المتساوية في الوزن
-        const tiedResults = finalResults.filter(r =>
-            Math.abs((r.cosineScore || 0) - topCosineScore) < 0.01
-        );
-
-        return {
-            query: query,
-            intent: finalResults[0]?.dbName,
-            topMatch: finalResults[0] ? {
-                id: finalResults[0].id,
-                dbName: finalResults[0].dbName,
-                score: finalResults[0].cosineScore || 0,
-                cosineScore: finalResults[0].cosineScore || 0,
-                data: finalResults[0].data,
-                // تمرير كل النتائج المتساوية
-                _allResults: tiedResults.length > 1 ? tiedResults : null
-            } : null,
-            results: finalResults.map(r => ({
-                ...r,
-                full_report: r.data.original_data
-            })),
-            confidence: topCosineScore,
-            metadata: { generated_at: new Date().toISOString(), total_found: allResults.length }
-        };
+        const keywordResults = db
+            .map(item => ({
+                id: item.id,
+                score: this.bm25Score(refinedQuery, item, dbName),
+                data: item
+            }))
+            .filter(r => r.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 20);
+        
+        const combined = this.rerankRRF(vectorResults, keywordResults);
+        combined.forEach(r => r.dbName = dbName);
+        
+        // ✅ حفظ نتائج كل قاعدة منفردةً
+        resultsByDB[dbName] = combined;
+        allResults.push(...combined);
     }
+    
+    const sortedResults = allResults.sort((a, b) => b.score - a.score);
+    const finalResults = sortedResults.slice(0, topK);
+    
+    console.log(`✅ Found ${finalResults.length} results (from ${allResults.length})`);
+    finalResults.forEach((r, i) => {
+        console.log(`${i === 0 ? '🏆' : `${i+1}.`} ${r.id} | النشاط: ${r.data?.original_data?.النشاط_المحدد || r.data?.original_data?.["اسم_المنطقة"] || r.data?.text} | Cosine: ${Math.round((r.cosineScore || 0) * 100)}% [${r.dbName}]`);
+    });
+    
+    const topCosineScore = finalResults[0]?.cosineScore || 0;
+
+    // كشف النتائج المتساوية في الوزن
+    const tiedResults = finalResults.filter(r =>
+        Math.abs((r.cosineScore || 0) - topCosineScore) < 0.01
+    );
+
+    return {
+        query: query,
+        intent: finalResults[0]?.dbName,
+        topMatch: finalResults[0] ? {
+            id: finalResults[0].id,
+            dbName: finalResults[0].dbName,
+            score: finalResults[0].cosineScore || 0,
+            cosineScore: finalResults[0].cosineScore || 0,
+            data: finalResults[0].data,
+            _allResults: tiedResults.length > 1 ? tiedResults : null
+        } : null,
+        results: finalResults.map(r => ({
+            ...r,
+            full_report: r.data?.original_data
+        })),
+        confidence: topCosineScore,
+        // ✅ إضافة resultsByDB لتمكين الملفات المتخصصة من الفلترة المباشرة
+        resultsByDB: resultsByDB,
+        metadata: { generated_at: new Date().toISOString(), total_found: allResults.length }
+    };
+}
 }
 
 export const hybridEngine = new HybridSearchEngine();
 window.hybridEngine = hybridEngine; // هذا السطر هو "الجسر" الذي يحتاجه gpt_agent.js
+
