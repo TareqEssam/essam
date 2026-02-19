@@ -1,11 +1,18 @@
 /****************************************************************************
  * 🏆 ResultReranker.js - خوارزمية إعادة الترتيب الذكية
  * 
- * المــهام:
+ * المهام:
  * ✅ دمج نتائج المحرك الدلالي والنصي
  * ✅ إعادة ترتيب بناءً على معايير متعددة
  * ✅ تعزيز النتائج بناءً على السياق
  * ✅ الاختيار الأمثل للنتيجة النهائية
+ *
+ * ⚠️ ملاحظة مقياس النقاط:
+ *   - المحرك الدلالي (HybridSearch): يُعطي cosineScore بين [0.0 - 1.0]
+ *   - المحرك النصي  (NeuralSearch):  يُعطي finalScore بين [30 - ~20000]
+ *     (exact_match=10000, full_phrase=3000, starts_with=1500, ...)
+ *   - NEURAL_SCORE_MAX يُستخدم لتطبيع النصي إلى [0-1] قبل الدمج
+ *   - القيمة 20000 تغطي أقصى نقطة واقعية مع هامش أمان
  ****************************************************************************/
 
 class ResultReranker {
@@ -18,6 +25,11 @@ class ResultReranker {
             freshness: 0.05,           // 5% للحداثة
             userBehavior: 0.05         // 5% لسلوك المستخدم
         };
+
+        // 📏 الحد الأقصى لنقاط NeuralSearch لتطبيعها إلى [0-1]
+        // exact_match(10000) + full_phrase(3000) + starts_with(1500) + intent_boost(×1.3) = ~19500
+        // نضع 20000 كحد آمن يمتص أي boost إضافي دون قطع
+        this.NEURAL_SCORE_MAX = 20000;
         
         // 📊 إحصائيات
         this.stats = {
@@ -65,7 +77,8 @@ class ResultReranker {
         console.log("✅ إعادة الترتيب اكتملت - النتيجة الأولى:", {
             id: sorted[0]?.id,
             score: sorted[0]?.finalScore?.toFixed(3),
-            source: sorted[0]?.source
+            source: sorted[0]?.source,
+            breakdown: sorted[0]?.scoreBreakdown
         });
         
         return sorted;
@@ -136,9 +149,14 @@ class ResultReranker {
             breakdown.semantic = result.semanticScore * this.weights.semanticScore;
         }
         
-        // 2️⃣ النقاط الكلماتية
+        // 2️⃣ النقاط الكلماتية - مع تطبيع إلى [0-1] أولاً
+        // NeuralSearch تُعطي finalScore بين [30-20000]، نُطبّعها لتتوازن مع cosineScore الدلالي [0-1]
         if (result.keywordScore > 0) {
-            breakdown.keyword = result.keywordScore * this.weights.keywordScore;
+            const isNeuralScore = result.keywordScore > 1; // cosine دائماً ≤ 1
+            const normalizedKeyword = isNeuralScore
+                ? Math.min(result.keywordScore / this.NEURAL_SCORE_MAX, 1.0)
+                : result.keywordScore;
+            breakdown.keyword = normalizedKeyword * this.weights.keywordScore;
         }
         
         // 3️⃣ تعزيز السياق
