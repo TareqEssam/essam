@@ -195,7 +195,9 @@ if (questionType.isAreaList && entities.hasGovernorate) {
     if (window.hybridEngine && window.hybridEngine.isReady) {
         try {
             const semanticResponse = await window.hybridEngine.search(query);
-            semanticResults = (semanticResponse?.results || []).filter(r => r.dbName === 'areas');
+            
+            semanticResults = semanticResponse?.resultsByDB?.['areas'] || [];
+            
             console.log(`🧠 نتائج دلالية (areas): ${semanticResults.length}`);
         } catch (e) {
             console.warn("⚠️ فشل البحث الدلالي:", e.message);
@@ -869,4 +871,5 @@ window.formatIndustrialMapLink = formatIndustrialMapLink;
 
 
 console.log('✅ gpt_areas.js - الإصدار المُصحح والمستقل بعد إزالة التكرارات تم تحميله بنجاح!');
+
 
