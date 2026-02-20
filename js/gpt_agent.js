@@ -934,9 +934,7 @@ function isQueryRelatedToContext(query, context) {
             console.log("❌ لا يحتوي على كلمات النشاط السابق - غير مرتبط");
             return false;
         }
-        // ✅ إصلاح: إذا كانت mainWords فارغة (كلمات ≤ 4 أحرف) لا نحكم بـ"مرتبط"
-        // بل نتركه يسقط لفحص q.length < 10 الذي يكتشف النشاط الجديد
-        if (mainWords.length > 0 && matchCount >= Math.ceil(mainWords.length * 0.5)) {
+        if (matchCount >= Math.ceil(mainWords.length * 0.5)) {
             console.log("✅ يحتوي على كلمات النشاط السابق - مرتبط");
             return true;
         }
@@ -1024,8 +1022,37 @@ async function processUserQuery(query) {
     // كلمات تدل على سؤال عن ترخيص صريح → تخرج من هذا المسار
     const _hasLicenseSignal = /(ترخيص|تراخيص|رخصه|رخصة|متطلبات|شروط|اجراءات|جهه|جهة)/.test(q);
 
-    if (_isShortQuery && !_hasAreaSignal && !_hasDecisionSignal && !_hasLicenseSignal && !context) {
+    // ══════════════════════════════════════════════════════════════════════
+    // 🔧 [إصلاح v1.1] بوابة الغموض: كانت مشروطة بـ !context
+    // المشكلة: عند السؤال عن نشاط جديد (مثل "فندق") بعد نشاط سابق،
+    //   context موجود من الجلسة السابقة → كانت بوابة الغموض تُتجاوز كلياً
+    //   فيذهب المحرك الدلالي لـ areas بدلاً من activities.
+    //
+    // الحل: السماح لبوابة الغموض بالعمل حتى مع وجود context، لكن فقط
+    //   إذا أثبت حارس النشاط الجديد (isQueryRelatedToContext=false) أن
+    //   هذا الاستعلام نشاط مستقل جديد وليس استكمالاً للسياق السابق.
+    //
+    // الشرط الجديد: !context أو (context موجود وسيُعالج لاحقاً كنشاط جديد)
+    // ══════════════════════════════════════════════════════════════════════
+    const _isNewActivityWithContext = context && context.type === 'activity' &&
+        typeof masterActivityDB !== 'undefined' &&
+        (() => {
+            const qNorm = normalizeArabic(q);
+            return masterActivityDB.some(act => {
+                const actNorm = normalizeArabic(act.text || act.value || '');
+                return actNorm === qNorm ||
+                    (actNorm.includes(qNorm) && qNorm.length > 2) ||
+                    qNorm.includes(actNorm.split(/\s+/)[0]);
+            });
+        })();
+
+    if (_isShortQuery && !_hasAreaSignal && !_hasDecisionSignal && !_hasLicenseSignal &&
+        (!context || _isNewActivityWithContext)) {
         console.log(`🔍 [بوابة الغموض] كلمة/جملة غير محددة: "${query}" ← فحص الوجود في activities + decision104`);
+        if (_isNewActivityWithContext) {
+            console.log("🔄 [بوابة الغموض] نشاط جديد مع context قديم — مسح السياق أولاً");
+            await AgentMemory.clear();
+        }
 
         const _ambCtx = (typeof analyzeContext === 'function') ? analyzeContext(query, questionType) : {};
         const _ambEnt = (typeof extractEntities === 'function') ? extractEntities(query) : {};
@@ -1339,6 +1366,32 @@ async function processUserQuery(query) {
         if (!isRelated) {
             console.log("🔄 سؤال جديد غير مرتبط - مسح السياق المؤقت");
             await AgentMemory.clear();
+
+            // ══════════════════════════════════════════════════════════════════
+            // 🔧 [إصلاح v1.1] بعد مسح السياق لنشاط جديد
+            // المشكلة: كان التنفيذ يكمل للمسار الدلالي الذي قد يختار areas
+            //   بدلاً من activities رغم أن حارس النشاط أثبت وجوده في masterActivityDB.
+            //
+            // الحل: إذا كان الاستعلام قصيراً (≤ 3 كلمات) وموجوداً في masterActivityDB
+            //   → وجّهه لبوابة الغموض مباشرة بدلاً من انتظار المحرك الدلالي
+            // ══════════════════════════════════════════════════════════════════
+            if (_isShortQuery && !_hasAreaSignal && !_hasDecisionSignal && !_hasLicenseSignal) {
+                const _isInActivities = typeof masterActivityDB !== 'undefined' &&
+                    masterActivityDB.some(act => {
+                        const actNorm = normalizeArabic(act.text || act.value || '');
+                        const qNorm   = normalizeArabic(q);
+                        return actNorm === qNorm ||
+                            (actNorm.includes(qNorm) && qNorm.length > 2) ||
+                            qNorm.includes(actNorm.split(/\s+/)[0]);
+                    });
+
+                if (_isInActivities) {
+                    console.log(`🔀 [إصلاح] نشاط جديد مؤكد "${query}" — توجيه مباشر لبوابة الغموض`);
+                    // إعادة استدعاء processUserQuery بعد مسح الذاكرة
+                    // (الذاكرة مُسحت للتو → context = null → بوابة الغموض ستعمل)
+                    return await processUserQuery(query);
+                }
+            }
         } else {
             console.log("💡 السؤال مرتبط بالسياق الحالي، جاري المعالجة السياقية...");
             const contextResponse = await handleContextualQuery(query, questionType, AgentMemory.getContext());
@@ -1720,11 +1773,7 @@ async function handleContextualQuery(query, questionType, context) {
         }
     } else if (context.type === 'activity') {
         const act = context.data;
-        // ✅ استخراج details من أي هيكل: مسطّح (NeuralSearch) أو متداخل (HybridSearch/Reranker)
-        const details = act.details
-            || act.data?.original_data?.details
-            || act.data?.details
-            || {};
+        const details = act.details || {};
         if (questionType.isLicense || q.includes('ترخيص') || q.includes('رخص')) {
             return formatLicensesDetailed(act);
         }
