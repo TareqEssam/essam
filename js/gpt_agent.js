@@ -1091,7 +1091,7 @@ async function processUserQuery(query) {
                         <div class="clarification-title">سؤالك يحتمل أكثر من معنى</div>
                     </div>
                     <div class="clarification-subtitle">
-                        وجدت معلومات عن <strong>"${_displayName}"</strong> في أكثر من قاعدة — ماذا تريد بالضبط؟
+                        وجدت معلومات عن <strong>"${_displayName}"</strong>  ماذا تريد بالضبط؟
                     </div>
                     <div class="choice-btn" onclick="(function(){
                         window.AgentMemory && window.AgentMemory.clear();
@@ -2366,5 +2366,6 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
