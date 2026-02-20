@@ -1,6 +1,6 @@
 // gpt_agent.js
 /****************************************************************************
- * 🤖 GPT-  Like Agent v10.0 - HYBRID SEMANTIC EDITION
+ * 🤖 GPT-Like Agent v10.0 - HYBRID SEMANTIC EDITION
  * 
  * ⚡ الميزات الثورية:
  * ✓ محرك دلالي هجين (HybridSearchV1) - بحث ذكي بتقنية E5 Embeddings
@@ -956,6 +956,23 @@ function isQueryRelatedToContext(query, context) {
     }
 
     if (q.length < 10) {
+        // ── [حارس النشاط الجديد] ──────────────────────────────────────────
+        // الكلمات القصيرة (< 10 أحرف) خطرة: قد تكون نشاطاً جديداً أو استكمالاً.
+        // إذا كان السياق السابق activity ونتائج البحث تجد هذه الكلمة كنشاط مستقل
+        // في قاعدة الأنشطة → هي نشاط جديد وليست استكمالاً
+        // ──────────────────────────────────────────────────────────────────
+        if (context.type === 'activity' && typeof masterActivityDB !== 'undefined') {
+            const qNorm = normalizeArabic(q);
+            const foundInActivities = masterActivityDB.some(act => {
+                const actNorm = normalizeArabic(act.text || act.value || '');
+                return actNorm.includes(qNorm) || qNorm.includes(actNorm.split(/\s+/)[0]);
+            });
+            if (foundInActivities) {
+                console.log(`❌ [حارس النشاط الجديد] "${q}" موجود في قاعدة الأنشطة - نشاط جديد وليس استكمالاً`);
+                return false;
+            }
+        }
+
         const deepCheck = DeepIntentAnalyzer.isStandaloneActivity(query);
         if (deepCheck.found) {
             console.log(`❌ كلمة نشاط مستقلة "${deepCheck.activity}" - غير مرتبط بالسياق`);
@@ -1048,9 +1065,8 @@ async function processUserQuery(query) {
                         وجدت معلومات عن <strong>"${_displayName}"</strong> في أكثر من قاعدة — ماذا تريد بالضبط؟
                     </div>
                     <div class="choice-btn" onclick="(function(){
-                        var q='تراخيص ${_safeName}';
-                        document.getElementById('gptInput').value=q;
-                        window.processUserQuery&&window.processUserQuery(q);
+                        window.AgentMemory && window.AgentMemory.clear();
+                        window.sendMessage('تراخيص ${_safeName}');
                     })()">
                         <span class="choice-icon">📋</span>
                         <div class="choice-content">
@@ -1059,9 +1075,8 @@ async function processUserQuery(query) {
                         </div>
                     </div>
                     <div class="choice-btn" onclick="(function(){
-                        var q='هل نشاط ${_safeName} وارد بالقرار 104';
-                        document.getElementById('gptInput').value=q;
-                        window.processUserQuery&&window.processUserQuery(q);
+                        window.AgentMemory && window.AgentMemory.clear();
+                        window.sendMessage('هل نشاط ${_safeName} وارد بالقرار 104');
                     })()">
                         <span class="choice-icon">⚖️</span>
                         <div class="choice-content">
@@ -1197,8 +1212,7 @@ async function processUserQuery(query) {
                     </div>
                     <div class="choice-btn" onclick="(function(){
                         var q='تراخيص ${_sn}';
-                        document.getElementById('gptInput').value=q;
-                        window.processUserQuery&&window.processUserQuery(q);
+                        window.sendMessage(q);
                     })()">
                         <span class="choice-icon">📋</span>
                         <div class="choice-content">
@@ -1208,8 +1222,7 @@ async function processUserQuery(query) {
                     </div>
                     <div class="choice-btn" onclick="(function(){
                         var q='هل نشاط ${_sn} وارد بالقرار 104';
-                        document.getElementById('gptInput').value=q;
-                        window.processUserQuery&&window.processUserQuery(q);
+                        window.sendMessage(q);
                     })()">
                         <span class="choice-icon">⚖️</span>
                         <div class="choice-content">
@@ -1308,10 +1321,8 @@ async function processUserQuery(query) {
                         </div>
                     </div>
                     <div class="choice-btn" onclick="(function(){
-                        var q = 'ما هي جهات الولايه للمناطق الصناعيه';
-                        document.getElementById('gptInput').value = q;
                         window.AgentMemory && window.AgentMemory.clear();
-                        window.processUserQuery && window.processUserQuery(q);
+                        window.sendMessage('ما هي جهات الولايه للمناطق الصناعيه');
                     })()">
                         <span class="choice-icon">🗂️</span>
                         <div class="choice-content">
