@@ -1558,14 +1558,20 @@ async function processUserQuery(query) {
                 break;
 
         case 'activities':
-            console.log("📋 مسار التراخيص والأنشطة (الدلالي المباشر)");
-            // جراحة: ثق في نتيجة المتجه واستخدم بياناتها فوراً دون إعادة البحث نصياً
-            const directAct = vectorMatch.data?.original_data || vectorMatch.data;
-            if (directAct) {
-                await AgentMemory.setActivity(directAct, query);
-                return formatActivityResponse(directAct, questionType);
-            }
-            break;
+    console.log("📋 مسار التراخيص والأنشطة (الدلالي المباشر)");
+    // ✅ [إصلاح] البحث أولاً في masterActivityDB بالـ id للحصول على البيانات الكاملة مع details
+    const actFromDB = masterActivityDB?.find(a => a.value === vectorMatch.id);
+    if (actFromDB) {
+        await AgentMemory.setActivity(actFromDB, query);
+        return formatActivityResponse(actFromDB, questionType);
+    }
+    // Fallback: استخدام بيانات المتجه إذا لم يُوجد في masterActivityDB
+    const directAct = vectorMatch.data?.original_data || vectorMatch.data;
+    if (directAct) {
+        await AgentMemory.setActivity(directAct, query);
+        return formatActivityResponse(directAct, questionType);
+    }
+    break;
 
         case 'areas':
             console.log("🏭 مسار المناطق الجغرافية");
@@ -2360,4 +2366,5 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
