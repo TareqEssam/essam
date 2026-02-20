@@ -78,6 +78,46 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
 
         console.log(`🎯 النتيجة الأولى: "${topResult.text}" - نقاط: ${topResult.finalScore}`);
 
+        // ══════════════════════════════════════════════════════════════════
+        // 🔧 [إصلاح v1.1] استخراج كائن النشاط الفعلي من هيكل Reranker
+        // ────────────────────────────────────────────────────────────────
+        // المشكلة: Reranker يُعيد كائناً بهيكل:
+        //   { id, text, finalScore, semanticScore, data: { original_data: {...} } }
+        // بينما formatActivityResponse تتوقع كائناً بهيكل:
+        //   { text, details: { req, auth, act, leg, loc, guid, link }, ... }
+        //
+        // الحل: استخراج original_data إن وُجد، مع الحفاظ على text و id
+        // للتوافق مع masterActivityDB (الذي يحتوي على details مباشرة)
+        // ══════════════════════════════════════════════════════════════════
+        function resolveActivityData(result) {
+            // الحالة 1: كائن من masterActivityDB مباشرة (يحتوي على details)
+            if (result.details) return result;
+
+            // الحالة 2: كائن من Reranker يحتوي على original_data
+            const od = result.data?.original_data;
+            if (od) {
+                // دمج النص المستخرج مع البيانات الأصلية
+                return {
+                    ...od,
+                    text: od.text || result.text || od.النشاط_المحدد || od.النشاط || result.id,
+                    id:   result.id
+                };
+            }
+
+            // الحالة 3: كائن من Reranker مع data مباشرة (بدون original_data)
+            const d = result.data;
+            if (d && (d.details || d.req || d.auth)) {
+                return {
+                    ...d,
+                    text: d.text || result.text || result.id,
+                    id:   result.id
+                };
+            }
+
+            // الحالة 4: الكائن نفسه كما هو (Fallback)
+            return result;
+        }
+
         // ✅ فحص: هل هناك عدة أنشطة متشابهة؟
         const similarActivities = detectSimilarActivities(query, finalResults);
 
@@ -86,27 +126,31 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
             AgentMemory.setClarification(similarActivities.map(r => ({
                 type: 'activity',
                 name: r.text,
-                data: r
+                data: resolveActivityData(r)
             })));
             return formatSimilarActivitiesChoice(query, similarActivities);
         }
 
         // ✅ ثقة عالية جداً (950+)
         if (topResult.finalScore > 950) {
-            await AgentMemory.setActivity(topResult, query);
-            return formatActivityResponse(topResult, questionType);
+            const actData = resolveActivityData(topResult);
+            console.log(`✅ [resolve] details موجودة: ${!!actData.details}`);
+            await AgentMemory.setActivity(actData, query);
+            return formatActivityResponse(actData, questionType);
         }
 
         // ✅ ثقة عالية (800+) والفارق كبير مع الثانية
         if (topResult.finalScore > 800) {
             if (finalResults.length === 1) {
-                await AgentMemory.setActivity(topResult, query);
-                return formatActivityResponse(topResult, questionType);
+                const actData = resolveActivityData(topResult);
+                await AgentMemory.setActivity(actData, query);
+                return formatActivityResponse(actData, questionType);
             }
             const scoreDiff = topResult.finalScore - finalResults[1].finalScore;
             if (scoreDiff > 200) {
-                await AgentMemory.setActivity(topResult, query);
-                return formatActivityResponse(topResult, questionType);
+                const actData = resolveActivityData(topResult);
+                await AgentMemory.setActivity(actData, query);
+                return formatActivityResponse(actData, questionType);
             }
         }
 
@@ -116,7 +160,7 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
             AgentMemory.setClarification(topResults.map(r => ({
                 type: 'activity',
                 name: r.text,
-                data: r
+                data: resolveActivityData(r)
             })));
             let html = `🤔 <strong>عثرت على نتائج متشابهة، أيهم تقصد؟</strong><br><br>`;
             topResults.forEach((r, i) => {
@@ -127,8 +171,10 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
             return html;
         }
 
-        await AgentMemory.setActivity(topResult, query);
-        return formatActivityResponse(topResult, questionType);
+        const actData = resolveActivityData(topResult);
+        console.log(`✅ [resolve] Fallback - details موجودة: ${!!actData.details}`);
+        await AgentMemory.setActivity(actData, query);
+        return formatActivityResponse(actData, questionType);
     }
 
     return null;
@@ -232,11 +278,7 @@ function formatSimilarActivitiesChoice(query, activities) {
 
 // ==================== دالة تنسيق رد النشاط الأساسية ====================
 function formatActivityResponse(activity, questionType) {
-    // ✅ استخراج details من أي هيكل: مسطّح (NeuralSearch) أو متداخل (HybridSearch/Reranker)
-    const details = activity.details
-        || activity.data?.original_data?.details
-        || activity.data?.details
-        || {};
+    const details = activity.details || {};
 
     let html = `<div class="info-card">
         <div class="info-card-header">
@@ -302,11 +344,7 @@ function formatActivityResponse(activity, questionType) {
 
 // ==================== دوال التنسيق الفرعية ====================
 function formatLicensesDetailed(activity) {
-    // ✅ استخراج details من أي هيكل: مسطّح (NeuralSearch) أو متداخل (HybridSearch/Reranker)
-    const details = activity.details
-        || activity.data?.original_data?.details
-        || activity.data?.details
-        || {};
+    const details = activity.details || {};
     let html = `<div class="license-card">
         <div class="license-title">📝 التراخيص المطلوبة لـ: ${activity.text}</div>
         <div class="license-list">`;
