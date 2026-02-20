@@ -2,7 +2,7 @@
 window.GPT_AGENT = window.GPT_AGENT || {};
 
 
-// ==================== دالة اختيار أفضل جهة ولاية ====================
+// ==================== دالة اخـــــتيار أفضل جهة ولاية ====================
 function getBestMatchingDependency(query, candidates) {
     if (!candidates || candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0];
@@ -406,136 +406,13 @@ if (questionType.isAreaList && entities.hasGovernorate) {
     console.log("🔍 البحث الهجين عن منطقة");
     const agentContext = AgentMemory.getContext();
 
-    let semanticResults = [];
-    let keywordResults  = [];
-
-    // أ. البحث الدلالي — نصفّي نتائج areas فقط
-    if (window.hybridEngine && window.hybridEngine.isReady) {
-        try {
-            const semanticResponse = await window.hybridEngine.search(query);
-            
-            semanticResults = semanticResponse?.resultsByDB?.['areas'] || [];
-            
-            console.log(`🧠 نتائج دلالية (areas): ${semanticResults.length}`);
-        } catch (e) {
-            console.warn("⚠️ فشل البحث الدلالي:", e.message);
-        }
-    }
-
-    // ب. البحث النصي — NeuralSearch مع industrialAreasData
-    if (typeof NeuralSearch === 'function') {
-        try {
-            const nsResult = NeuralSearch(query, industrialAreasData, { minScore: 50 });
-            keywordResults = nsResult?.results || [];
-            console.log(`🔤 نتائج نصية (areas): ${keywordResults.length}`);
-        } catch (e) {
-            console.warn("⚠️ فشل البحث النصي:", e.message);
-        }
-    }
-
-    // ج. دمج النتائج بالـ Reranker أو Fallback
-    let hybridResults = [];
-    if (window.resultReranker && (semanticResults.length > 0 || keywordResults.length > 0)) {
-        hybridResults = window.resultReranker.rerank(
-            semanticResults,
-            keywordResults,
-            query,
-            agentContext
-        );
-        console.log(`✨ نتائج areas بعد Reranking: ${hybridResults.length}`);
-    } else if (keywordResults.length > 0) {
-        hybridResults = keywordResults;
-        console.log("⚠️ Fallback: استخدام النتائج النصية فقط");
-    }
-
-    // د. استخراج النتائج وفحص التعادل قبل الاختيار
-    if (hybridResults.length > 0) {
-
-        // ── خطوة 1: تحويل كل نتائج Reranker إلى مناطق حقيقية ──
-        const resolvedAreas = [];
-        for (const r of hybridResults) {
-            const rawData = r?.data?.original_data || r?.originalData || r;
-            const areaName = rawData?.اسم_المنطقة || rawData?.name || rawData?.text || r?.id || '';
-            const found = industrialAreasData.find(a =>
-                normalizeArabic(a.name) === normalizeArabic(areaName)
-            ) || (areaName ? rawData : null);
-            if (found && found.name) {
-                // ✅ الاحتفاظ بـ cosineScore الخام لمقارنة التعادل بدقة
-                resolvedAreas.push({
-                    area: found,
-                    score: r.finalScore || r.score || 0,
-                    cosineScore: r.cosineScore || r.semanticScore || 0
-                });
-            }
-        }
-
-        if (resolvedAreas.length === 0) {
-            // لم نجد أي منطقة - نكمل للـ Fallback
-        } else if (resolvedAreas.length === 1) {
-            // نتيجة واحدة واضحة
-            const foundArea = resolvedAreas[0].area;
-            AgentMemory.setIndustrial(foundArea, query);
-            if (questionType.isYesNo) {
-                return `✅ نعم، <strong>${foundArea.name}</strong> هي منطقة صناعية معتمدة.`;
-            }
-            return formatIndustrialResponse(foundArea);
-
-        } else {
-            // ── خطوة 2: هل الكلمة المبحوث عنها موجودة في أكثر من منطقة؟ ──
-            const topScore = resolvedAreas[0].score;
-            const topCosine = resolvedAreas[0].cosineScore || 0;
-            const queryWords = normalizeArabic(query)
-                .replace(/(هل|منطقه|منطقة|صناعيه|صناعية|مناطق)/g, '')
-                .trim()
-                .split(/\s+/)
-                .filter(w => w.length > 2);
-
-            // مناطق تحتوي على كلمة البحث في اسمها
-            const nameMatches = resolvedAreas.filter(r =>
-                queryWords.some(w => normalizeArabic(r.area.name).includes(w))
-            );
-
-            // ✅ تعادل دلالي (فارق cosine ≤ 1%) أو تعادل في finalScore (≤ 5%)
-            const tiedResults = resolvedAreas.filter(r => {
-                if (topCosine > 0) {
-                    return Math.abs((r.cosineScore || 0) - topCosine) <= 0.01;
-                }
-                return topScore === 0 || Math.abs(r.score - topScore) / Math.max(topScore, 0.001) <= 0.05;
-            });
-
-            const ambiguousCandidates = nameMatches.length >= 2
-                ? nameMatches
-                : tiedResults.length >= 2
-                    ? tiedResults
-                    : null;
-
-            console.log(`🔍 [Areas Ambiguity] nameMatches=${nameMatches.length} | tied=${tiedResults.length} | سيعرض=${ambiguousCandidates?.length || 1}`);
-
-            if (ambiguousCandidates && ambiguousCandidates.length >= 2) {
-                const limited = ambiguousCandidates.slice(0, 6);
-                console.log(`🤔 [Areas Ambiguity] عرض ${limited.length} خيارات للمستخدم`);
-                return formatMultipleAreasChoice(query, limited);
-            }
-
-            // نتيجة واضحة
-            const foundArea = resolvedAreas[0].area;
-            AgentMemory.setIndustrial(foundArea, query);
-            if (questionType.isYesNo) {
-                return `✅ نعم، <strong>${foundArea.name}</strong> هي منطقة صناعية معتمدة.`;
-            }
-            return formatIndustrialResponse(foundArea);
-        }
-    }
-
-    // هـ. Fallback أخير: searchIndustrialZonesWithNeural (النصي القديم كشبكة أمان)
-    const foundAreaFallback = window.searchIndustrialZonesWithNeural(query);
-    if (foundAreaFallback) {
-        AgentMemory.setIndustrial(foundAreaFallback, query);
-        if (questionType.isYesNo) {
-            return `✅ نعم، <strong>${foundAreaFallback.name}</strong> هي منطقة صناعية معتمدة.`;
-        }
-        return formatIndustrialResponse(foundAreaFallback);
-    }
+    // ════════════════════════════════════════════════════════════════
+    // ✅ [توحيد المسارين]: بدلاً من مسارين منفصلين (هل / بدون هل)
+    // نُفوّض دائماً لـ handleAreaExistenceQuestion التي تستخرج
+    // الكلمة المفتاحية وتبحث في كل قاعدة البيانات بشكل شامل.
+    // هذا يضمن نفس النتيجة بغض النظر عن صيغة السؤال.
+    // ════════════════════════════════════════════════════════════════
+    return await handleAreaExistenceQuestion(query, entities, q, keywords);
 
     // === المستوى 5: الحالات الخاصة ===
 
@@ -564,6 +441,65 @@ if (questionType.isAreaList && entities.hasGovernorate) {
     return null;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 🤔 buildClarificationWidget — widget التوضيح عند الالتباس
+// ════════════════════════════════════════════════════════════════════
+// يعرض سؤالاً للمستخدم مع خيارات قابلة للنقر ليختار نيته بدقة.
+// @param {string} question - نص السؤال التوضيحي
+// @param {Array}  options  - مصفوفة [{label, action, primary}]
+function buildClarificationWidget(question, options) {
+    const btns = options.map(opt => `
+        <div class="choice-btn ${opt.primary ? 'choice-btn-primary' : ''}"
+             onclick="${opt.action}"
+             style="margin-bottom:8px; cursor:pointer; padding:12px 16px;
+                    background:${opt.primary ? '#0ea5e9' : '#f8fafc'};
+                    color:${opt.primary ? '#fff' : '#1e293b'};
+                    border:2px solid ${opt.primary ? '#0ea5e9' : '#e2e8f0'};
+                    border-radius:10px; font-size:0.9rem; line-height:1.5;
+                    transition:all 0.2s;">
+            ${opt.label}
+        </div>`).join('');
+
+    return `
+        <div style="padding:14px 16px; background:#fff7ed; border-radius:12px;
+                    border-right:4px solid #f59e0b; margin-bottom:12px;
+                    font-size:0.9rem; color:#92400e; line-height:1.6;">
+            🤔 <strong>توضيح:</strong> ${question}
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+            ${btns}
+        </div>`;
+}
+
+// ── دالة تُستدعى من onclick لعرض جهة الولاية للمنطقة المحددة ──
+window.selectIndustrialAreaDependency = async function(areaName) {
+    const area = industrialAreasData.find(a => normalizeArabic(a.name) === normalizeArabic(areaName));
+    if (!area) return;
+    const dep = area.dependency || 'غير محددة';
+    const gov = area.governorate || '';
+    const html = `<div class="info-card">
+        <div class="info-card-header">🏛️ جهة الولاية لـ ${area.name}</div>
+        <div class="info-card-content">
+            <div class="info-row">
+                <div class="info-label">🏛️ جهة الولاية:</div>
+                <div class="info-value"><strong>${dep}</strong></div>
+            </div>
+            ${gov ? `<div class="info-row"><div class="info-label">📍 المحافظة:</div><div class="info-value">${gov}</div></div>` : ''}
+        </div>
+    </div>
+    <div style="margin-top:10px;padding:10px;background:#f0f9ff;border-radius:8px;font-size:0.85rem;color:#0369a1;">
+        💡 يمكنك سؤالي عن: المساحة • الموقع • القرار
+    </div>`;
+
+    // عرض الرد في واجهة الدردشة
+    if (window.GPT_AGENT && window.GPT_AGENT.appendBotMessage) {
+        window.GPT_AGENT.appendBotMessage(html);
+    } else if (window.appendBotMessage) {
+        window.appendBotMessage(html);
+    }
+};
+
+// ════════════════════════════════════════════════════════════════════
 // ==================== 🆕 دوال مساعدة جديدة - محسّنة ✅ ====================
 
 // ✅ دالة تنظيف الكلمات من البادئات واللواحق
@@ -615,6 +551,67 @@ async function handleSpecificAreaQuery(query, areaNames, questionType) {
 async function handleAreaExistenceQuestion(query, entities, normalizedQuery, keywords) {
 
     console.log("❓ فحص وجود منطقة:", query);
+
+    // ════════════════════════════════════════════════════════════════
+    // 🧠 [نظام التوضيح الذكي] — كشف الالتباس بين نيتين محتملتين
+    // ════════════════════════════════════════════════════════════════
+    // حالة الالتباس: الباحث يكتب "جهة الولاية" أو "ما هي جهات الولاية"
+    // وهناك سياق منطقة محددة نشط.
+    // السؤال: هل يقصد جهة الولاية للمنطقة المحددة؟ أم جهات الولاية عموماً؟
+    //
+    // قرار التوضيح:
+    //   - إذا hasDependencyWord = true + hasIndustrialContext = true
+    //     → الالتباس محتمل → اسأل المستخدم بخيارات واضحة
+    //   - إذا hasDependencyWord = true + لا سياق → سؤال عام مباشر
+    // ════════════════════════════════════════════════════════════════
+    const q_normalized = normalizeArabic(query);
+    const depWords = ['جهه', 'جهة', 'جهات', 'الجهه', 'الجهة', 'الجهات', 'ولايه', 'ولاية', 'الولايه', 'الولاية', 'تبعيه', 'تبعية'];
+    const hasDependencyWord = depWords.some(w => q_normalized.includes(w));
+
+    if (hasDependencyWord) {
+        const agentCtx = (typeof AgentMemory !== 'undefined') ? AgentMemory.getContext() : null;
+        const hasCtx   = agentCtx && agentCtx.type === 'industrial' && agentCtx.data;
+
+        if (hasCtx) {
+            // ── حالة الالتباس الصريح: سياق نشط + سؤال عن جهة الولاية ──
+            const ctxArea = agentCtx.data;
+            const hasPlural   = ['جهات', 'الجهات', 'ولايات'].some(w => q_normalized.includes(w));
+            const hasGenScope = ['المناطق', 'مناطق', 'الصناعيه', 'الصناعية', 'صناعيه', 'صناعية'].some(w => q_normalized.includes(w));
+
+            if (!hasPlural && !hasGenScope) {
+                // ── مفرد بدون "المناطق" → الغالب أنه يقصد المنطقة الحالية ──
+                // لكن قد يقصد سؤالاً عاماً → نُوضّح
+                console.log(`🤔 [التوضيح] التباس: جهة الولاية لـ "${ctxArea.name}" أم عموماً؟`);
+                const dep = ctxArea.dependency || 'غير محددة';
+                return buildClarificationWidget(
+                    `هل تقصد جهة الولاية لـ <strong>${ctxArea.name}</strong>، أم تريد عرض جهات الولاية لجميع المناطق؟`,
+                    [
+                        {
+                            label: `🏛️ جهة الولاية لـ "${ctxArea.name}" (${dep})`,
+                            action: `selectIndustrialAreaDependency('${ctxArea.name.replace(/'/g, "\\'")}')`,
+                            primary: true
+                        },
+                        {
+                            label: `📋 جهات الولاية لجميع المناطق الصناعية`,
+                            action: `sendMessage('ما هي جهات الولاية للمناطق الصناعية')`,
+                            primary: false
+                        }
+                    ]
+                );
+            } else {
+                // ── جمع أو مع "المناطق" → سؤال عام بوضوح ──
+                console.log("🏛️ [التوضيح] جمع/نطاق عام → قائمة جهات الولاية مباشرة");
+                const deps = [...new Set(industrialAreasData.map(a => a.dependency))];
+                return formatDependencyChoices(deps);
+            }
+        } else {
+            // لا سياق → سؤال عام مباشر
+            console.log("🏛️ [التوضيح] لا سياق → قائمة جهات الولاية");
+            const deps = [...new Set(industrialAreasData.map(a => a.dependency))];
+            return formatDependencyChoices(deps);
+        }
+    }
+    // ════════════════════════════════════════════════════════════════
 
     // 1. البحث الهجين للحصول على النتائج الأولية (دلالي + نصي)
     let neuralResultsList = [];
