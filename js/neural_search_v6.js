@@ -373,10 +373,15 @@ function advancedNormalize(text) {
         .trim()
         .toLowerCase();
 
-    // نزع "ال" التعريف من الكلمات لضمان تطابق "المكتب" مع "مكتب"
+    // نزع "ال" التعريف + تجذير ذكي لتحسين التطابق
+    // [تعديل] أضفنا ArabicNLP.stem() بعد نزع "ال"
     return normalized.split(' ').map(word => {
         if (word.startsWith('ال') && word.length > 4) {
-            return word.substring(2);
+            word = word.substring(2);
+        }
+        // ✅ [جديد] تجذير الكلمة إذا كانت طويلة كافياً
+        if (window.ArabicNLP && word.length > 3) {
+            return window.ArabicNLP.stem(word);
         }
         return word;
     }).join(' ');
@@ -1434,5 +1439,6 @@ window.ContextManager = ContextManager;
 window.detectDatabaseType = detectDatabaseType;
 window.normalizeIndustrialZone = normalizeIndustrialZone;
 window.normalizeDecision104 = normalizeDecision104;
+
 
 
