@@ -2,7 +2,7 @@
 window.GPT_AGENT = window.GPT_AGENT || {};
 
 
-// ==================== دالة اختـــيار أفضل جهة ولاية ====================
+// ==================== دالة اختيار أفضل جهة ولاية ====================
 function getBestMatchingDependency(query, candidates) {
     if (!candidates || candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0];
