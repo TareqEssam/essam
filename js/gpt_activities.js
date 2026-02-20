@@ -1,7 +1,7 @@
 // gpt_activities.js
 window.GPT_AGENT = window.GPT_AGENT || {};
 
-// ==================== معالج أسئلة الأنشطة - الإصدار الأصلي ====================
+// ==================== مـــعالج أسئلة الأنشطة - الإصدار الأصلي ====================
 async function handleActivityQuery(query, questionType, preComputedContext, preComputedEntities) {
     if (typeof masterActivityDB === 'undefined') {
         return "⚠️ نظام البحث عن الأنشطة غير متوفر حالياً.";
@@ -90,33 +90,39 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
         // للتوافق مع masterActivityDB (الذي يحتوي على details مباشرة)
         // ══════════════════════════════════════════════════════════════════
         function resolveActivityData(result) {
-            // الحالة 1: كائن من masterActivityDB مباشرة (يحتوي على details)
-            if (result.details) return result;
+    // الحالة 1: كائن من masterActivityDB مباشرة (يحتوي على details)
+    if (result.details) return result;
 
-            // الحالة 2: كائن من Reranker يحتوي على original_data
-            const od = result.data?.original_data;
-            if (od) {
-                // دمج النص المستخرج مع البيانات الأصلية
-                return {
-                    ...od,
-                    text: od.text || result.text || od.النشاط_المحدد || od.النشاط || result.id,
-                    id:   result.id
-                };
-            }
+    // ✅ [إصلاح] الحالة 2: البحث في masterActivityDB بالـ id أو text للحصول على details الكاملة
+    const fromDB = (typeof masterActivityDB !== 'undefined') && masterActivityDB?.find(a =>
+        a.value === result.id ||
+        normalizeArabic(a.text).trim() === normalizeArabic(result.text || '').trim()
+    );
+    if (fromDB) return fromDB;
 
-            // الحالة 3: كائن من Reranker مع data مباشرة (بدون original_data)
-            const d = result.data;
-            if (d && (d.details || d.req || d.auth)) {
-                return {
-                    ...d,
-                    text: d.text || result.text || result.id,
-                    id:   result.id
-                };
-            }
+    // الحالة 3: كائن من Reranker يحتوي على original_data
+    const od = result.data?.original_data;
+    if (od) {
+        return {
+            ...od,
+            text: od.text || result.text || od.النشاط_المحدد || od.النشاط || result.id,
+            id:   result.id
+        };
+    }
 
-            // الحالة 4: الكائن نفسه كما هو (Fallback)
-            return result;
-        }
+    // الحالة 4: كائن من Reranker مع data مباشرة (بدون original_data)
+    const d = result.data;
+    if (d && (d.details || d.req || d.auth)) {
+        return {
+            ...d,
+            text: d.text || result.text || result.id,
+            id:   result.id
+        };
+    }
+
+    // الحالة 5: الكائن نفسه كما هو (Fallback أخير)
+    return result;
+}
 
         // ✅ فحص: هل هناك عدة أنشطة متشابهة؟
         const similarActivities = detectSimilarActivities(query, finalResults);
@@ -447,3 +453,4 @@ window.formatSimilarActivitiesChoice = formatSimilarActivitiesChoice;
 
 
 console.log('✅ gpt_activities.js - تم تحميله بنجاح (مستقل تماماً)');
+
