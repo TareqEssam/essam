@@ -1,6 +1,42 @@
 // gpt_activities.js
 window.GPT_AGENT = window.GPT_AGENT || {};
 
+// ==================== 🔧 دالة مســاعدة: استخراج كائن النشاط الصحيح من نتيجة Reranker ====================
+// المشكلة: نتيجة Reranker تحتوي على: { id, text, data: { original_data: { details: {...} } } }
+//          لكن formatActivityResponse تتوقع: { text, details: { req, auth, act, ... } }
+// الحل: نُسوّي الكائن بأن ننسخ details للمستوى الأعلى مباشرة
+function resolveActivityData(result) {
+    if (!result) return result;
+
+    // ✅ إذا كانت details موجودة مباشرةً على الكائن → لا تعديل
+    if (result.details && typeof result.details === 'object' &&
+        (result.details.req || result.details.act || result.details.auth)) {
+        return result;
+    }
+
+    // ✅ ابحث في original_data (نتائج المحرك الدلالي)
+    const od = result.data?.original_data;
+    if (od && od.details) {
+        return { ...result, ...od, details: od.details, text: result.text || od.text || od.name || result.id };
+    }
+    if (od && (od.req || od.act || od.auth)) {
+        // البيانات مسطّحة في original_data مباشرة بدون حقل details
+        return { ...result, ...od, text: result.text || od.text || result.id };
+    }
+
+    // ✅ ابحث في data مباشرةً
+    const d = result.data;
+    if (d && d.details) {
+        return { ...result, ...d, details: d.details, text: result.text || d.text || result.id };
+    }
+    if (d && (d.req || d.act || d.auth)) {
+        return { ...result, ...d, text: result.text || d.text || result.id };
+    }
+
+    // لا يوجد تغيير — أرجع الكائن كما هو
+    return result;
+}
+
 // ==================== معالج أسئلة الأنشطة - الإصدار الأصلي ====================
 async function handleActivityQuery(query, questionType, preComputedContext, preComputedEntities) {
     if (typeof masterActivityDB === 'undefined') {
@@ -83,41 +119,50 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
 
         if (similarActivities.length > 1) {
             console.log(`🔍 عثرت على ${similarActivities.length} أنشطة متشابهة`);
-            AgentMemory.setClarification(similarActivities.map(r => ({
-                type: 'activity',
-                name: r.text,
-                data: r
-            })));
+            AgentMemory.setClarification(similarActivities.map(r => {
+                const resolved = resolveActivityData(r);
+                return {
+                    type: 'activity',
+                    name: r.text,
+                    data: resolved
+                };
+            }));
             return formatSimilarActivitiesChoice(query, similarActivities);
         }
 
         // ✅ ثقة عالية جداً (950+)
         if (topResult.finalScore > 950) {
-            await AgentMemory.setActivity(topResult, query);
-            return formatActivityResponse(topResult, questionType);
+            const resolved = resolveActivityData(topResult);
+            await AgentMemory.setActivity(resolved, query);
+            return formatActivityResponse(resolved, questionType);
         }
 
         // ✅ ثقة عالية (800+) والفارق كبير مع الثانية
         if (topResult.finalScore > 800) {
             if (finalResults.length === 1) {
-                await AgentMemory.setActivity(topResult, query);
-                return formatActivityResponse(topResult, questionType);
+                const resolved = resolveActivityData(topResult);
+                await AgentMemory.setActivity(resolved, query);
+                return formatActivityResponse(resolved, questionType);
             }
             const scoreDiff = topResult.finalScore - finalResults[1].finalScore;
             if (scoreDiff > 200) {
-                await AgentMemory.setActivity(topResult, query);
-                return formatActivityResponse(topResult, questionType);
+                const resolved = resolveActivityData(topResult);
+                await AgentMemory.setActivity(resolved, query);
+                return formatActivityResponse(resolved, questionType);
             }
         }
 
         // ✅ ثقة متوسطة مع وجود أكثر من نتيجة
         if (finalResults.length > 1 && topResult.finalScore > 300) {
             const topResults = finalResults.slice(0, 3);
-            AgentMemory.setClarification(topResults.map(r => ({
-                type: 'activity',
-                name: r.text,
-                data: r
-            })));
+            AgentMemory.setClarification(topResults.map(r => {
+                const resolved = resolveActivityData(r);
+                return {
+                    type: 'activity',
+                    name: r.text,
+                    data: resolved
+                };
+            }));
             let html = `🤔 <strong>عثرت على نتائج متشابهة، أيهم تقصد؟</strong><br><br>`;
             topResults.forEach((r, i) => {
                 html += `<div class="choice-btn" onclick="resolveAmbiguity('activity', ${i})">
@@ -127,8 +172,9 @@ async function handleActivityQuery(query, questionType, preComputedContext, preC
             return html;
         }
 
-        await AgentMemory.setActivity(topResult, query);
-        return formatActivityResponse(topResult, questionType);
+        const resolved = resolveActivityData(topResult);
+        await AgentMemory.setActivity(resolved, query);
+        return formatActivityResponse(resolved, questionType);
     }
 
     return null;
@@ -401,4 +447,3 @@ window.formatSimilarActivitiesChoice = formatSimilarActivitiesChoice;
 
 
 console.log('✅ gpt_activities.js - تم تحميله بنجاح (مستقل تماماً)');
-
