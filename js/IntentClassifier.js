@@ -2,7 +2,7 @@
  * 🎯 IntentClassifier.js - المصنف الذكي متعدد الطبقات
  * 
  * المهام:
- * ✅ تصنيف النية قبل البحث (Pre-Search Intent Classification)
+ * ✅ تصـــــنيف النية قبل البحث (Pre-Search Intent Classification)
  * ✅ نظام أوزان ديناميكي قابل للتعديل
  * ✅ التكامل مع ذاكرة السياق (agent_memory.js)
  * ✅ الاستفادة من الكلمات والنوايا في neural_search_v6.js
@@ -447,6 +447,21 @@ class IntentClassifier {
         const entries = Object.entries(scores).sort((a, b) => b[1] - a[1]);
         const winner = entries[0];
         const runnerUp = entries[1];
+
+        // ✅ [إصلاح تصادم "صناعيه"]:
+        // إذا احتوى الاستعلام على "منطقه" أو "منطقة" → industrial_zones تفوز فوراً
+        // منع "صناعه" في activities من التنافس مع "منطقه صناعيه" في areas
+        const hasZoneWord = /منطق[هة]|مناطق/.test(query);
+        if (hasZoneWord && scores.industrial_zones >= 3.0) {
+            console.log("🏭 [قاعدة المنطقة] وُجدت 'منطقة' → industrial_zones فائزة مباشرة");
+            return {
+                primary: 'areas',
+                secondary: null,
+                confidence: scores.industrial_zones,
+                isAmbiguous: false,
+                searchOrder: ['areas']
+            };
+        }
         
         if (winner[1] >= this.weights[winner[0]].minScore) {
             if (runnerUp && (winner[1] - runnerUp[1] < 2.0)) {
