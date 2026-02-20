@@ -1069,7 +1069,7 @@ function formatDefaultIndustrialOptions() {
 // دالة لعرض خيارات الجهات عند عدم التحديد
 function formatDependencyChoices(deps) {
     let html = `<div class="info-card">
-        <div class="info-card-header">🤔 أي جهة ولاية تقصد؟</div>
+        <div class="info-card-header">🤔 أي جهة ولاية تقصد؟ هذة قائمة بجميع جهات الولايه </div>
         <div class="info-card-content">
             <p>يوجد <strong>${deps.length}</strong> جهة ولاية مختلفة للمناطق الصناعية:</p>
         </div>
@@ -1270,3 +1270,4 @@ window.formatMultipleAreasChoice = formatMultipleAreasChoice;
 
 
 console.log('✅ gpt_areas.js - الإصدار المُصحح والمستقل تم تحميله بنجاح!');
+
