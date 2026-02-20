@@ -220,30 +220,54 @@ class IntentClassifier {
      * 📊 حساب النقاط بناءً على الكلمات المفتاحية
      */
     calculateScore(query, database) {
-        let score = 0;
-        const keywords = this.weights[database].keywords;
-        
-        // 🔍 فحص الكلمات المركبة أولاً (مثل "منطقة صناعية")
-        for (const [keyword, weight] of Object.entries(keywords)) {
-            if (keyword.includes(' ')) {
-                if (query.includes(keyword)) {
-                    score += weight;
-                    console.log(`  ✓ "${keyword}" → +${weight}`);
+    let score = 0;
+    const keywords = this.weights[database].keywords;
+    
+    // 🔍 فحص الكلمات المركبة أولاً (مثل "منطقة صناعية")
+    for (const [keyword, weight] of Object.entries(keywords)) {
+        if (keyword.includes(' ')) {
+            if (query.includes(keyword)) {
+                score += weight;
+                console.log(`  ✓ "${keyword}" → +${weight}`);
+            }
+            // ✅ [جديد] فحص بالجذر أيضاً للكلمات المركبة
+            else if (window.ArabicNLP) {
+                const stemmedQuery = window.ArabicNLP.stemQuery(query);
+                const stemmedKeyword = window.ArabicNLP.stemQuery(keyword);
+                if (stemmedQuery.includes(stemmedKeyword)) {
+                    score += weight * 0.85; // وزن أقل قليلاً للتطابق بالجذر
+                    console.log(`  ✓ [جذر] "${keyword}" → +${weight * 0.85}`);
                 }
             }
         }
-        
-        // 🔍 فحص الكلمات المفردة
-        const queryTokens = query.split(/\s+/);
-        for (const token of queryTokens) {
-            if (keywords[token]) {
-                score += keywords[token];
-                console.log(`  ✓ "${token}" → +${keywords[token]}`);
+    }
+    
+    // 🔍 فحص الكلمات المفردة
+    const queryTokens = query.split(/\s+/);
+    for (const token of queryTokens) {
+        if (keywords[token]) {
+            score += keywords[token];
+            console.log(`  ✓ "${token}" → +${keywords[token]}`);
+        }
+        // ✅ [جديد] فحص بالجذر للكلمات المفردة
+        else if (window.ArabicNLP) {
+            const stemmedToken = window.ArabicNLP.stem(token);
+            // نبحث عن مفتاح في قاموس الأوزان يشارك نفس الجذر
+            for (const [keyword, weight] of Object.entries(keywords)) {
+                if (!keyword.includes(' ')) { // مفردة فقط
+                    const stemmedKeyword = window.ArabicNLP.stem(keyword);
+                    if (stemmedToken === stemmedKeyword && stemmedToken.length > 2) {
+                        score += weight * 0.80; // وزن أقل للتطابق بالجذر
+                        console.log(`  ✓ [جذر] "${token}"≈"${keyword}" → +${weight * 0.80}`);
+                        break;
+                    }
+                }
             }
         }
-        
-        return score;
     }
+    
+    return score;
+}
     
     /**
      * 🧠 تطبيق تعزيز السياق من الذاكرة
@@ -408,3 +432,4 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { IntentClassifier };
 }
+
