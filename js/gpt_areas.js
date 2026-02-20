@@ -73,9 +73,19 @@ async function handleIndustrialQuery(query, questionType, preComputedContext, pr
         return formatGeneralCountWithOptions(totalAreas);
     }
 
-    // 2. 🆕 سؤال Yes/No عن وجود منطقة معينة
-    if (questionType.isYesNo && questionType.isAreaExistenceCheck) {
-        console.log("❓ سؤال Yes/No عن وجود منطقة");
+    // 2. سؤال عن وجود/معلومات منطقة معينة (Yes/No أو استعلام عام)
+    // ✅ [إصلاح المسارين المتعارضين]:
+    // المنطق القديم: isYesNo → handleAreaExistenceQuestion / hasAreaName → مسار آخر
+    // المنطق الجديد: إذا وُجد اسم منطقة بثقة ≥ 80 في الكيانات → مسار موحد مباشر
+    // وإذا لم يوجد اسم محدد لكن السؤال عن وجود منطقة → handleAreaExistenceQuestion
+    if (questionType.isYesNo || questionType.isAreaExistenceCheck) {
+        // أولوية: إذا حدّد المستخدم اسم منطقة بوضوح في الكيانات → أجب مباشرة بدون keyword extraction
+        if (entities.hasAreaName && entities.areaNames.length >= 1 && entities.areaNames[0].confidence >= 70) {
+            console.log("✅ [مسار موحد] اسم منطقة واضح في الكيانات → استجابة مباشرة");
+            return await handleSpecificAreaQuery(query, entities.areaNames, questionType);
+        }
+        // لا يوجد اسم محدد → البحث الذكي عبر handleAreaExistenceQuestion
+        console.log("❓ سؤال Yes/No عن وجود منطقة (بحث ذكي)");
         return await handleAreaExistenceQuestion(query, entities, q, keywords);
     }
 
@@ -164,19 +174,13 @@ if (questionType.isAreaList && entities.hasGovernorate) {
 
     // === المستوى 4: البحث عن منطقة محددة ===
 
-    // 10. 🆕 إذا وُجد اسم منطقة في الكيانات
+    // 10. 🆕 إذا وُجد اسم منطقة في الكيانات (يستخدم الدالة الموحدة)
     if (entities.hasAreaName) {
-        console.log("📍 وُجد اسم منطقة في الكيانات");
-        if (entities.areaNames.length === 1 && entities.areaNames[0].confidence >= 80) {
-            const areaName = entities.areaNames[0].name;
-            const area = industrialAreasData.find(a => a.name === areaName);
-            if (area) {
-                await AgentMemory.setIndustrial(area, query);
-                if (questionType.isYesNo) {
-                    return `✅ نعم، <strong>${area.name}</strong> هي منطقة صناعية معتمدة.`;
-                }
-                return formatIndustrialResponse(area);
-            }
+        console.log("📍 وُجد اسم منطقة في الكيانات → الدالة الموحدة");
+        // ✅ [إصلاح]: بدلاً من منطق مكرر هنا، نستخدم handleSpecificAreaQuery الموحدة
+        // هذا يضمن نفس الإجابة بغض النظر عن صيغة السؤال (هل/ما/أين/بدون أداة استفهام)
+        if (entities.areaNames.length >= 1 && entities.areaNames[0].confidence >= 60) {
+            return await handleSpecificAreaQuery(query, entities.areaNames, questionType);
         }
         if (entities.areaNames.length > 1) {
             console.log("🤔 عدة مناطق محتملة");
@@ -356,6 +360,90 @@ function cleanSearchKeyword(keyword) {
         .replace(/[هةىي]$/g, '')
         .trim();
     return cleaned.length > 1 ? cleaned : "";
+}
+
+// ==================== 🆕 الدالة الموحدة لمعالجة أي سؤال عن منطقة محددة ====================
+/**
+ * handleSpecificAreaQuery
+ * 
+ * 🎯 الهدف: توحيد جميع مسارات الإجابة عن منطقة محددة في مكان واحد
+ * 
+ * المشكلة القديمة:
+ *   - "هل منطقة البساتين صناعية؟" → isYesNo → handleAreaExistenceQuestion (keyword extraction)
+ *   - "منطقة البساتين" → hasAreaName → مسار مباشر مختلف
+ *   → نفس المعنى، إجابتان مختلفتان
+ * 
+ * الحل: أي سؤال يحتوي على اسم منطقة واضح يمر من هنا بغض النظر عن صيغة السؤال
+ * 
+ * @param {string} query - السؤال الأصلي
+ * @param {Array} areaNames - الأسماء المستخرجة من الكيانات [{name, confidence}]
+ * @param {Object} questionType - نوع السؤال
+ */
+async function handleSpecificAreaQuery(query, areaNames, questionType) {
+    console.log("🎯 [handleSpecificAreaQuery] معالجة منطقة محددة:", areaNames.map(a => a.name));
+
+    // 1. محاولة المطابقة المباشرة مع قاعدة البيانات
+    let foundArea = null;
+    let matchedName = null;
+
+    for (const areaRef of areaNames) {
+        const name = areaRef.name;
+        // أ. مطابقة حرفية كاملة
+        foundArea = industrialAreasData.find(a => normalizeArabic(a.name) === normalizeArabic(name));
+        if (foundArea) { matchedName = name; break; }
+        
+        // ب. مطابقة جزئية (الاسم يحتوي على الكلمة المطلوبة)
+        const cleanName = cleanSearchKeyword(name);
+        if (cleanName.length > 2) {
+            const partials = industrialAreasData.filter(a =>
+                normalizeArabic(a.name).includes(cleanName)
+            );
+            if (partials.length === 1) {
+                foundArea = partials[0];
+                matchedName = name;
+                break;
+            } else if (partials.length > 1) {
+                // عدة مناطق → عرض خيارات
+                console.log(`🤔 [handleSpecificAreaQuery] ${partials.length} مناطق تحتوي على "${cleanName}"`);
+                const candidates = partials.slice(0, 6).map(a => ({ area: a, score: 1, cosineScore: 0 }));
+                return formatMultipleAreasChoice(query, candidates);
+            }
+        }
+    }
+
+    // 2. إذا وجدنا المنطقة → إجابة موحدة بناءً على نوع السؤال
+    if (foundArea) {
+        await AgentMemory.setIndustrial(foundArea, query);
+        console.log("✅ [handleSpecificAreaQuery] تم العثور على:", foundArea.name);
+
+        // تحديد نوع الإجابة بناءً على نية السؤال
+        if (questionType.isLocation) {
+            return formatIndustrialMapLink(foundArea);
+        }
+        if (questionType.isYesNo || questionType.isAreaExistenceCheck) {
+            const areaName = foundArea.name;
+            const displayName = (areaName.startsWith('المنطقة') || areaName.startsWith('منطقة'))
+                ? areaName : `منطقة ${areaName}`;
+            return `✅ <strong>نعم</strong>، <strong>${displayName}</strong> هي منطقة صناعية معتمدة.<br>
+                <small style="color: #666;">📍 تقع في محافظة ${foundArea.governorate}</small><br><br>
+                <div class="choice-btn" onclick="selectIndustrialArea('${foundArea.name.replace(/'/g, "\\'")}')">
+                    <span class="choice-icon">📋</span> <strong>عرض التفاصيل الكاملة للمنطقة</strong>
+                </div>
+                <div style="margin-top: 10px; padding: 12px; background: #f8fafc; border-radius: 10px; border-right: 4px solid #0ea5e9; font-size: 0.85rem; color: #1e293b; line-height: 1.6;">
+                    💡 <strong>يمكنك سؤالي عن:</strong><br>
+                    • جهة الولاية • المحافظة • المساحة • القرار • عرض الخريطة
+                </div>
+                ${buildExplorationButtons()}`;
+        }
+        // السؤال العام عن المنطقة
+        return formatIndustrialResponse(foundArea);
+    }
+
+    // 3. لم نجد المنطقة بالاسم المباشر → نفوّض لـ handleAreaExistenceQuestion للبحث الذكي
+    console.log("⚠️ [handleSpecificAreaQuery] لم يُعثر على المنطقة مباشرة → بحث ذكي");
+    const q = normalizeArabic(query);
+    const keywords = extractKeywords(query);
+    return await handleAreaExistenceQuestion(query, { areaNames, hasAreaName: true }, q, keywords);
 }
 
 // معالج أسئلة Yes/No عن وجود منطقة - النسخة الاحترافية الشاملة
