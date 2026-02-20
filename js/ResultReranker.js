@@ -14,10 +14,17 @@
  *
  * 🔧 تعديلات v1.1:
  *   - إصلاح mergeResults(): توحيد حقل `text` من مصادر مختلفة
- *     المشكلة: النتيجة الفائزة تظهر text=undefined في gpt_activities
- *     السبب:  HybridSearch يضع الاسم في data.text أو data.original_data.text
- *             بينما NeuralSearch يضعه في result.text مباشرة
  *   - إضافة extractText() دالة مساعدة لاستخراج النص من أي هيكل
+ *
+ * 🔧 تعديلات v1.2:
+ *   - إضافة normalizeArabic(): تطبيع النص العربي قبل المقارنة
+ *   - إضافة getQueryTokens(): تقطيع الاستعلام إلى رموز مُطبَّعة
+ *   - إضافة applyQueryOverlapPenalty(): 
+ *       المشكلة: "تربية الدواجن" كانت تتصدر على "تربية أسماك" لأن BM25 يُكافئ
+ *                كلمة "تربية" المشتركة ويتجاهل كلمة "أسماك" الغائبة عن النتيجة.
+ *       الحل:   نحسب نسبة كلمات الاستعلام الموجودة في نص النتيجة، فإذا كانت
+ *               نسبة التغطية منخفضة نطبق عقوبة على الدرجة النهائية.
+ *   - تعديل calculateFinalScore(): استدعاء العقوبة بعد حساب الدرجة الخام
  ****************************************************************************/
 
 class ResultReranker {
@@ -41,52 +48,157 @@ class ResultReranker {
         };
     }
 
+    // =========================================================================
+    // 🆕 v1.2 — تطبيع النص العربي (نفس منطق x.py و test_engine.py)
+    // =========================================================================
+
     /**
-     * 🔤 [جديد] استخراج النص/الاسم من أي هيكل بيانات
+     * تطبيع النص العربي: توحيد الألف والياء والتاء المربوطة
+     * نفس الخوارزمية المستخدمة في Python حتى تتطابق المقارنات
      *
-     * المشكلة الأصلية:
-     *   - HybridSearch: result.data.text | result.data.original_data.text | result.id
-     *   - NeuralSearch: result.text | result.originalData.text
-     *   - بعد الدمج في mergeResults: حقل text يضيع لأن الـ spread (...result)
-     *     يأخذ الحقول الموجودة مباشرة، لكن text في HybridSearch مدفون داخل data
+     * @param {string} text
+     * @returns {string}
+     */
+    normalizeArabic(text) {
+        if (!text || typeof text !== 'string') return '';
+        return text
+            .replace(/[إأآ]/g, 'ا')
+            .replace(/ى/g,  'ي')
+            .replace(/ة/g,  'ه')
+            .replace(/ؤ/g,  'و')
+            .replace(/ئ/g,  'ي')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    }
+
+    /**
+     * تقطيع الاستعلام إلى مجموعة رموز مُطبَّعة
+     * نُزيل الكلمات الوقفية القصيرة (أقل من 3 حروف) لتجنب التطابق الزائف
+     * مثال: "تربية أسماك" → Set{'تربيه', 'اسماك'}
      *
-     * الحل: دالة واحدة تبحث في كل المواقع الممكنة بالترتيب
+     * @param {string} query
+     * @returns {Set<string>}
+     */
+    getQueryTokens(query) {
+        const STOP_WORDS = new Set(['من', 'في', 'على', 'إلى', 'الى', 'عن', 'مع',
+                                     'هل', 'ما', 'هو', 'هي', 'ان', 'أن', 'و',
+                                     'ال', 'لا', 'لم', 'لن', 'قد', 'كل']);
+        const normalized = this.normalizeArabic(query);
+        const tokens = normalized.split(' ').filter(t => t.length >= 3 && !STOP_WORDS.has(t));
+        return new Set(tokens);
+    }
+
+    /**
+     * 🎯 حساب نسبة تغطية كلمات الاستعلام في نص النتيجة
      *
-     * @param {Object} result - كائن النتيجة من أي مصدر
-     * @returns {string} النص المستخرج أو سلسلة فارغة
+     * المنطق:
+     *   - نأخذ كلمات الاستعلام المُطبَّعة (queryTokens)
+     *   - نبحث عن كل كلمة داخل نص النتيجة المُطبَّع (fullText)
+     *   - نُعيد نسبة الكلمات الموجودة بين 0.0 و 1.0
+     *
+     * مثال على المشكلة القديمة:
+     *   query = "تربية أسماك"
+     *   queryTokens = {'تربيه', 'اسماك'}
+     *   نتيجة A: "تربية الدواجن"  → تحتوي 'تربيه' فقط  → overlap = 0.5
+     *   نتيجة B: "استزراع سمكي"   → لا تحتوي أياً منهما → overlap = 0.0  ← مشكلة!
+     *   نتيجة C: "المزارع السمكية" → تحتوي جذر 'سمك'    → overlap = 0.5
+     *
+     * ملاحظة: نستخدم includes() بدلاً من === للتعامل مع الجذور المشتركة
+     *   'اسماك'.includes لن ينجح، لكن نص "أسماك" بعد التطبيع = "اسماك" ✅
+     *
+     * @param {Set<string>} queryTokens - كلمات الاستعلام المُطبَّعة
+     * @param {string} resultText       - نص النتيجة الكامل
+     * @returns {number} نسبة التغطية [0.0 - 1.0]
+     */
+    calculateQueryOverlap(queryTokens, resultText) {
+        if (!queryTokens || queryTokens.size === 0) return 1.0; // لا يُعاقَب
+        if (!resultText) return 0.0;
+
+        const normalizedResult = this.normalizeArabic(resultText);
+        let matchCount = 0;
+
+        for (const token of queryTokens) {
+            // نبحث عن الكلمة أو جذرها (أول 4 حروف للتعامل مع الاشتقاق)
+            const stem = token.length >= 4 ? token.substring(0, 4) : token;
+            if (normalizedResult.includes(token) || normalizedResult.includes(stem)) {
+                matchCount++;
+            }
+        }
+
+        return matchCount / queryTokens.size;
+    }
+
+    /**
+     * ⚖️ تطبيق عقوبة/مكافأة على النتيجة بناءً على تغطية الاستعلام
+     *
+     * جدول العقوبات والمكافآت:
+     *   overlap = 1.0  (كل الكلمات موجودة) → مكافأة  +0.15
+     *   overlap = 0.75                       → مكافأة  +0.05
+     *   overlap = 0.5  (نصف الكلمات)        → بدون تغيير (0)
+     *   overlap = 0.25                       → عقوبة   -0.10
+     *   overlap = 0.0  (لا توجد كلمة واحدة) → عقوبة   -0.20
+     *
+     * لماذا هذه القيم؟
+     *   - المكافأة عند التغطية الكاملة تدفع النتيجة المثالية للصدارة حتى لو
+     *     كانت درجتها الدلالية قريبة من المنافسين
+     *   - العقوبة عند التغطية الصفرية تُزيح النتائج التي نجحت بسبب كلمة مشتركة
+     *     واحدة فقط (مثل "تربية الدواجن" عند البحث عن "تربية أسماك")
+     *
+     * @param {number} baseScore  - الدرجة الخام قبل العقوبة
+     * @param {number} overlap    - نسبة التغطية [0.0 - 1.0]
+     * @returns {number}          - الدرجة بعد التعديل
+     */
+    applyQueryOverlapPenalty(baseScore, overlap) {
+        let adjustment = 0;
+
+        if (overlap >= 1.0) {
+            adjustment = +0.15;  // كل الكلمات موجودة → مكافأة كبيرة
+        } else if (overlap >= 0.75) {
+            adjustment = +0.05;  // معظم الكلمات → مكافأة بسيطة
+        } else if (overlap >= 0.5) {
+            adjustment = 0;      // نصف الكلمات → لا تغيير
+        } else if (overlap >= 0.25) {
+            adjustment = -0.10;  // قليل من الكلمات → عقوبة متوسطة
+        } else {
+            adjustment = -0.20;  // لا يوجد تطابق → عقوبة كبيرة
+        }
+
+        // نتأكد أن الدرجة لا تنزل تحت الصفر
+        return Math.max(0, baseScore + adjustment);
+    }
+
+    // =========================================================================
+    // الدوال الأصلية (محدّثة فقط في calculateFinalScore)
+    // =========================================================================
+
+    /**
+     * 🔤 استخراج النص/الاسم من أي هيكل بيانات
      */
     extractText(result) {
         if (!result) return '';
 
-        // 1. text مباشرة على الكائن (NeuralSearch المعتاد)
         if (result.text && typeof result.text === 'string' && result.text !== 'undefined') {
             return result.text;
         }
 
-        // 2. داخل data.text (HybridSearch بعض الحالات)
         if (result.data?.text && typeof result.data.text === 'string') {
             return result.data.text;
         }
 
-        // 3. داخل data.original_data (HybridSearch - بيانات الأنشطة)
         const od = result.data?.original_data;
         if (od) {
-            // أنشطة activity_database
             if (od.text)            return od.text;
-            // قرار 104
             if (od.النشاط_المحدد)  return od.النشاط_المحدد;
             if (od.النشاط)         return od.النشاط;
             if (od.activity)       return od.activity;
-            // مناطق صناعية
             if (od.name)           return od.name;
             if (od.اسم_المنطقة)   return od.اسم_المنطقة;
         }
 
-        // 4. originalData (NeuralSearch عند إرجاع بيانات كاملة)
         if (result.originalData?.text)   return result.originalData.text;
         if (result.originalData?.name)   return result.originalData.name;
 
-        // 5. الـ id كحل أخير (مقروء للإنسان في كثير من الحالات)
         if (result.id && typeof result.id === 'string') return result.id;
 
         return '';
@@ -102,10 +214,14 @@ class ResultReranker {
         
         this.stats.totalRerankings++;
         
+        // 🆕 v1.2: نحسب رموز الاستعلام مرة واحدة ونُمررها لكل النتائج
+        const queryTokens = this.getQueryTokens(query || '');
+        console.log("  🔤 رموز الاستعلام:", [...queryTokens]);
+
         const mergedResults = this.mergeResults(semanticResults, keywordResults);
         
         const scoredResults = mergedResults.map(result => {
-            const finalScore = this.calculateFinalScore(result, query, context);
+            const finalScore = this.calculateFinalScore(result, query, context, queryTokens);
             return {
                 ...result,
                 finalScore,
@@ -119,7 +235,7 @@ class ResultReranker {
         
         console.log("✅ إعادة الترتيب اكتملت - النتيجة الأولى:", {
             id: sorted[0]?.id,
-            text: sorted[0]?.text,           // ← نعرض text للتحقق
+            text: sorted[0]?.text,
             score: sorted[0]?.finalScore?.toFixed(3),
             source: sorted[0]?.source,
             breakdown: sorted[0]?.scoreBreakdown
@@ -130,24 +246,18 @@ class ResultReranker {
     
     /**
      * 🔀 دمج النتائج من المصدرين
-     *
-     * [تعديل v1.1]:
-     *   - إضافة استخراج text عند إنشاء كل إدخال في الخريطة
-     *   - النتيجة: كل كائن مدمج يحتوي على text مضمون وصحيح
      */
     mergeResults(semanticResults = [], keywordResults = []) {
         const resultsMap = new Map();
         
-        // إضافة النتائج الدلالية
         semanticResults.forEach((result, index) => {
             const key = result.id ?? result.value ?? `sem_${index}`;
-            // ✅ [جديد] استخراج text عند الإنشاء لا عند الاستخدام
             const resolvedText = this.extractText(result);
 
             resultsMap.set(key, {
                 ...result,
                 id: key,
-                text: resolvedText,                           // ← مضمون دائماً
+                text: resolvedText,
                 semanticScore: result.score || result.cosineScore || 0,
                 semanticRank: index + 1,
                 keywordScore: 0,
@@ -156,28 +266,24 @@ class ResultReranker {
             });
         });
         
-        // دمج النتائج النصية
         keywordResults.forEach((result, index) => {
             const key = result.id ?? result.value ?? `kw_${index}`;
             const existing = resultsMap.get(key);
             
             if (existing) {
-                // النتيجة موجودة في كلا المصدرين (hybrid)
                 existing.keywordScore = result.score || result.finalScore || 0;
                 existing.keywordRank = index + 1;
                 existing.source = 'hybrid';
-                // ✅ تحديث text إذا كانت النسخة النصية أوضح
                 if (!existing.text || existing.text === existing.id) {
                     const kwText = this.extractText(result);
                     if (kwText) existing.text = kwText;
                 }
             } else {
-                // نتيجة فقط من المحرك النصي
                 const resolvedText = this.extractText(result);
                 resultsMap.set(key, {
                     ...result,
                     id: key,
-                    text: resolvedText,                       // ← مضمون دائماً
+                    text: resolvedText,
                     semanticScore: 0,
                     semanticRank: null,
                     keywordScore: result.score || result.finalScore || 0,
@@ -192,12 +298,21 @@ class ResultReranker {
     
     /**
      * 📊 حساب النقاط النهائية المركبة
+     *
+     * 🔧 v1.2: إضافة queryTokens كمعامل رابع
+     *          بعد حساب الدرجة الخام نُطبق عقوبة/مكافأة التغطية
+     *
+     * @param {Object}   result
+     * @param {string}   query
+     * @param {Object}   context
+     * @param {Set}      queryTokens - 🆕 رموز الاستعلام المُطبَّعة
      */
-    calculateFinalScore(result, query, context) {
+    calculateFinalScore(result, query, context, queryTokens = null) {
         const breakdown = {
             semantic: 0,
             keyword: 0,
             contextBoost: 0,
+            overlapAdjustment: 0,   // 🆕 حقل جديد في التقرير
             totalRaw: 0
         };
         
@@ -224,7 +339,25 @@ class ResultReranker {
             console.log(`  🔀 مكافأة هجينة للنتيجة ${result.id}`);
         }
         
-        breakdown.totalRaw = breakdown.semantic + breakdown.keyword + breakdown.contextBoost + hybridBonus;
+        // الدرجة الخام قبل تعديل التغطية
+        const baseScore = breakdown.semantic + breakdown.keyword + breakdown.contextBoost + hybridBonus;
+
+        // 🆕 v1.2: تطبيق عقوبة/مكافأة التغطية
+        let finalScore = baseScore;
+        if (queryTokens && queryTokens.size > 0) {
+            const resultText = result.text || '';
+            const overlap = this.calculateQueryOverlap(queryTokens, resultText);
+            finalScore = this.applyQueryOverlapPenalty(baseScore, overlap);
+            breakdown.overlapAdjustment = +(finalScore - baseScore).toFixed(3);
+            breakdown.overlap = +overlap.toFixed(2);
+
+            // سجّل في الكونسول فقط عند العقوبة للحد من الضجيج
+            if (overlap < 0.5) {
+                console.log(`  ⚠️ عقوبة تغطية: ${result.id} | overlap=${overlap.toFixed(2)} | ${baseScore.toFixed(3)} → ${finalScore.toFixed(3)}`);
+            }
+        }
+
+        breakdown.totalRaw = +finalScore.toFixed(4);
         result.scoreBreakdown = breakdown;
         
         return breakdown.totalRaw;
@@ -243,7 +376,6 @@ class ResultReranker {
             case 'activity':
                 return resultData['النشاط_المحدد'] === contextData.text ||
                        resultData['الاسم'] === contextData.text ||
-                       // ✅ [جديد] فحص text المُوحَّد أيضاً
                        result.text === contextData.text;
                        
             case 'industrial':
@@ -304,7 +436,7 @@ class ResultReranker {
 if (typeof window !== 'undefined') {
     window.ResultReranker = ResultReranker;
     window.resultReranker = new ResultReranker();
-    console.log("✅ ResultReranker v1.1 جاهز — توحيد text + isContextRelevant مُحسَّن");
+    console.log("✅ ResultReranker v1.2 جاهز — عقوبة تغطية الاستعلام + تطبيع عربي");
 }
 
 if (typeof module !== 'undefined' && module.exports) {
