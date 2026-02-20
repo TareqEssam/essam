@@ -1,7 +1,7 @@
 // gpt_activities.js
 window.GPT_AGENT = window.GPT_AGENT || {};
 
-// ==================== معالج أسئلة الأنشطة - الإصدار الأصلي ====================
+// ==================== معــــــــالج أسئلة الأنشطة - الإصدار الأصلي ====================
 async function handleActivityQuery(query, questionType, preComputedContext, preComputedEntities) {
     if (typeof masterActivityDB === 'undefined') {
         return "⚠️ نظام البحث عن الأنشطة غير متوفر حالياً.";
@@ -412,3 +412,4 @@ window.formatSimilarActivitiesChoice = formatSimilarActivitiesChoice;
 
 
 console.log('✅ gpt_activities.js - تم تحميله بنجاح (مستقل تماماً)');
+
