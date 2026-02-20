@@ -1,6 +1,6 @@
 // gpt_agent.js
 /****************************************************************************
- * 🤖 GPT-Like Agent v111.0 - HYBRID SEMANTIC EDITION
+ * 🤖 GPT-Like Agent v10.0 - HYBRID SEMANTIC EDITION
  * 
  * ⚡ الميزات الثورية:
  * ✓ محرك دلالي هجين (HybridSearchV1) - بحث ذكي بتقنية E5 Embeddings
@@ -1718,7 +1718,10 @@ async function handleContextualQuery(query, questionType, context) {
         }
     } else if (context.type === 'activity') {
         const act = context.data;
-        const details = act.details || {};
+        const details = act.details
+            || act.data?.original_data?.details
+            || act.data?.details
+            || {};
         if (questionType.isLicense || q.includes('ترخيص') || q.includes('رخص')) {
             return formatLicensesDetailed(act);
         }
@@ -1867,21 +1870,9 @@ window.resolveAmbiguity = async function(type, index) {
                     typeWriterResponse(responseHTML);
                 }, 600);
             } else if (type === 'activity') {
-                // ✅ إصلاح: استخراج كائن النشاط الصحيح
-                // نتيجة Reranker تضع البيانات في data.original_data
-                // لكن formatActivityResponse تتوقع { text, details:{...} } في المستوى الأعلى
-                const rawData = choice.data;
-                let activityObj;
-                if (rawData?.data?.original_data?.details) {
-                    activityObj = { ...rawData.data.original_data, text: rawData.text || rawData.data.original_data.text };
-                } else if (rawData?.data?.details) {
-                    activityObj = { ...rawData.data, text: rawData.text || rawData.data.text };
-                } else {
-                    activityObj = rawData;
-                }
-                await AgentMemory.setActivity(activityObj, choice.name);
+                await AgentMemory.setActivity(choice.data, choice.name);
                 addMessageToUI('user', choice.name);
-                const responseHTML = formatActivityResponse(activityObj, detectQuestionType(choice.name));
+                const responseHTML = formatActivityResponse(choice.data, detectQuestionType(choice.name));
                 const typingId = showTypingIndicator();
                 setTimeout(() => {
                     removeTypingIndicator(typingId);
