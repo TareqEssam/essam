@@ -905,6 +905,16 @@ async function processUserQuery(query) {
     console.log("🚀 ========== بدء المعالجة الذكية (الهجينة) ==========");
     console.log("📝 السؤال الأصلي:", query);
 
+    // ✅ [جديد] تصحيح إملائي قبل أي معالجة
+    // يعمل على مستوى العبارات والكلمات المنفردة
+    if (window.ArabicNLP) {
+        const corrected = window.ArabicNLP.correctSpelling(query);
+        if (corrected !== query) {
+            console.log(`✍️ [إملائي] تصحيح: "${query}" → "${corrected}"`);
+            query = corrected;
+        }
+    }
+
     // 1️⃣ التطهير الأولي واستخراج السياق الأساسي
     const q = window.normalizeArabic(query);
     const questionType = window.detectQuestionType(query);
@@ -2080,3 +2090,4 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
