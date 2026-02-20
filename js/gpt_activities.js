@@ -232,6 +232,7 @@ function formatSimilarActivitiesChoice(query, activities) {
 
 // ==================== دالة تنسيق رد النشاط الأساسية ====================
 function formatActivityResponse(activity, questionType) {
+    // ✅ استخراج details من أي هيكل: مسطّح (NeuralSearch) أو متداخل (HybridSearch/Reranker)
     const details = activity.details
         || activity.data?.original_data?.details
         || activity.data?.details
@@ -301,6 +302,7 @@ function formatActivityResponse(activity, questionType) {
 
 // ==================== دوال التنسيق الفرعية ====================
 function formatLicensesDetailed(activity) {
+    // ✅ استخراج details من أي هيكل: مسطّح (NeuralSearch) أو متداخل (HybridSearch/Reranker)
     const details = activity.details
         || activity.data?.original_data?.details
         || activity.data?.details
