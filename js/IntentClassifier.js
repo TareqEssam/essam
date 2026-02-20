@@ -173,6 +173,7 @@ class IntentClassifier {
                     'قرار': 2.5,
                     '104': 5.0,
                     'قرار 104': 10.0,
+                    'شهادة بدء': 10.0,
                     'حافز': 3.5,
                     'حوافز': 3.5,
                     'اعفاء': 3.0,
@@ -599,3 +600,4 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { IntentClassifier };
 }
+
