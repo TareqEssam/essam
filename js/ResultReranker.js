@@ -1,7 +1,7 @@
 /****************************************************************************
  * 🏆 ResultReranker.js - خوارزمية إعادة الترتيب الذكية
  * 
- * المهام:
+ * المـــــــــهام:
  * ✅ دمج نتائج المحرك الدلالي والنصي
  * ✅ إعادة ترتيب بناءً على معايير متعددة
  * ✅ تعزيز النتائج بناءً على السياق
@@ -10,28 +10,29 @@
  * ⚠️ ملاحظة مقياس النقاط:
  *   - المحرك الدلالي (HybridSearch): يُعطي cosineScore بين [0.0 - 1.0]
  *   - المحرك النصي  (NeuralSearch):  يُعطي finalScore بين [30 - ~20000]
- *     (exact_match=10000, full_phrase=3000, starts_with=1500, ...)
  *   - NEURAL_SCORE_MAX يُستخدم لتطبيع النصي إلى [0-1] قبل الدمج
- *   - القيمة 20000 تغطي أقصى نقطة واقعية مع هامش أمان
+ *
+ * 🔧 تعديلات v1.1:
+ *   - إصلاح mergeResults(): توحيد حقل `text` من مصادر مختلفة
+ *     المشكلة: النتيجة الفائزة تظهر text=undefined في gpt_activities
+ *     السبب:  HybridSearch يضع الاسم في data.text أو data.original_data.text
+ *             بينما NeuralSearch يضعه في result.text مباشرة
+ *   - إضافة extractText() دالة مساعدة لاستخراج النص من أي هيكل
  ****************************************************************************/
 
 class ResultReranker {
     constructor() {
         // ⚙️ أوزان معايير إعادة الترتيب
         this.weights = {
-            semanticScore: 0.40,      // 40% للتشابه الدلالي
-            keywordScore: 0.30,        // 30% للمطابقة الكلماتية
-            contextRelevance: 0.20,    // 20% للصلة بالسياق
-            freshness: 0.05,           // 5% للحداثة
-            userBehavior: 0.05         // 5% لسلوك المستخدم
+            semanticScore: 0.40,
+            keywordScore: 0.30,
+            contextRelevance: 0.20,
+            freshness: 0.05,
+            userBehavior: 0.05
         };
 
-        // 📏 الحد الأقصى لنقاط NeuralSearch لتطبيعها إلى [0-1]
-        // exact_match(10000) + full_phrase(3000) + starts_with(1500) + intent_boost(×1.3) = ~19500
-        // نضع 20000 كحد آمن يمتص أي boost إضافي دون قطع
         this.NEURAL_SCORE_MAX = 20000;
         
-        // 📊 إحصائيات
         this.stats = {
             totalRerankings: 0,
             semanticWins: 0,
@@ -39,14 +40,60 @@ class ResultReranker {
             hybridWins: 0
         };
     }
-    
+
+    /**
+     * 🔤 [جديد] استخراج النص/الاسم من أي هيكل بيانات
+     *
+     * المشكلة الأصلية:
+     *   - HybridSearch: result.data.text | result.data.original_data.text | result.id
+     *   - NeuralSearch: result.text | result.originalData.text
+     *   - بعد الدمج في mergeResults: حقل text يضيع لأن الـ spread (...result)
+     *     يأخذ الحقول الموجودة مباشرة، لكن text في HybridSearch مدفون داخل data
+     *
+     * الحل: دالة واحدة تبحث في كل المواقع الممكنة بالترتيب
+     *
+     * @param {Object} result - كائن النتيجة من أي مصدر
+     * @returns {string} النص المستخرج أو سلسلة فارغة
+     */
+    extractText(result) {
+        if (!result) return '';
+
+        // 1. text مباشرة على الكائن (NeuralSearch المعتاد)
+        if (result.text && typeof result.text === 'string' && result.text !== 'undefined') {
+            return result.text;
+        }
+
+        // 2. داخل data.text (HybridSearch بعض الحالات)
+        if (result.data?.text && typeof result.data.text === 'string') {
+            return result.data.text;
+        }
+
+        // 3. داخل data.original_data (HybridSearch - بيانات الأنشطة)
+        const od = result.data?.original_data;
+        if (od) {
+            // أنشطة activity_database
+            if (od.text)            return od.text;
+            // قرار 104
+            if (od.النشاط_المحدد)  return od.النشاط_المحدد;
+            if (od.النشاط)         return od.النشاط;
+            if (od.activity)       return od.activity;
+            // مناطق صناعية
+            if (od.name)           return od.name;
+            if (od.اسم_المنطقة)   return od.اسم_المنطقة;
+        }
+
+        // 4. originalData (NeuralSearch عند إرجاع بيانات كاملة)
+        if (result.originalData?.text)   return result.originalData.text;
+        if (result.originalData?.name)   return result.originalData.name;
+
+        // 5. الـ id كحل أخير (مقروء للإنسان في كثير من الحالات)
+        if (result.id && typeof result.id === 'string') return result.id;
+
+        return '';
+    }
+
     /**
      * 🏆 إعادة الترتيب الرئيسية
-     * @param {Array} semanticResults - نتائج المحرك الدلالي
-     * @param {Array} keywordResults - نتائج المحرك النصي
-     * @param {String} query - الاستعلام الأصلي
-     * @param {Object} context - السياق من الذاكرة
-     * @returns {Array} النتائج مرتبة
      */
     rerank(semanticResults, keywordResults, query, context = null) {
         console.log("🏆 بدء إعادة الترتيب...");
@@ -55,27 +102,24 @@ class ResultReranker {
         
         this.stats.totalRerankings++;
         
-        // 1️⃣ دمج النتائج من المصدرين
         const mergedResults = this.mergeResults(semanticResults, keywordResults);
         
-        // 2️⃣ حساب النقاط المركبة لكل نتيجة
         const scoredResults = mergedResults.map(result => {
             const finalScore = this.calculateFinalScore(result, query, context);
             return {
                 ...result,
                 finalScore,
-                scoreBreakdown: result.scoreBreakdown // للشفافية
+                scoreBreakdown: result.scoreBreakdown
             };
         });
         
-        // 3️⃣ الترتيب النهائي
         const sorted = scoredResults.sort((a, b) => b.finalScore - a.finalScore);
         
-        // 4️⃣ تحليل الفائز
         this.analyzeWinner(sorted[0]);
         
         console.log("✅ إعادة الترتيب اكتملت - النتيجة الأولى:", {
             id: sorted[0]?.id,
+            text: sorted[0]?.text,           // ← نعرض text للتحقق
             score: sorted[0]?.finalScore?.toFixed(3),
             source: sorted[0]?.source,
             breakdown: sorted[0]?.scoreBreakdown
@@ -86,17 +130,24 @@ class ResultReranker {
     
     /**
      * 🔀 دمج النتائج من المصدرين
+     *
+     * [تعديل v1.1]:
+     *   - إضافة استخراج text عند إنشاء كل إدخال في الخريطة
+     *   - النتيجة: كل كائن مدمج يحتوي على text مضمون وصحيح
      */
     mergeResults(semanticResults = [], keywordResults = []) {
         const resultsMap = new Map();
         
         // إضافة النتائج الدلالية
         semanticResults.forEach((result, index) => {
-            // ✅ توحيد المفتاح: NeuralSearch تستخدم value، HybridSearch تستخدم id
             const key = result.id ?? result.value ?? `sem_${index}`;
+            // ✅ [جديد] استخراج text عند الإنشاء لا عند الاستخدام
+            const resolvedText = this.extractText(result);
+
             resultsMap.set(key, {
                 ...result,
                 id: key,
+                text: resolvedText,                           // ← مضمون دائماً
                 semanticScore: result.score || result.cosineScore || 0,
                 semanticRank: index + 1,
                 keywordScore: 0,
@@ -107,7 +158,6 @@ class ResultReranker {
         
         // دمج النتائج النصية
         keywordResults.forEach((result, index) => {
-            // ✅ توحيد المفتاح
             const key = result.id ?? result.value ?? `kw_${index}`;
             const existing = resultsMap.get(key);
             
@@ -116,11 +166,18 @@ class ResultReranker {
                 existing.keywordScore = result.score || result.finalScore || 0;
                 existing.keywordRank = index + 1;
                 existing.source = 'hybrid';
+                // ✅ تحديث text إذا كانت النسخة النصية أوضح
+                if (!existing.text || existing.text === existing.id) {
+                    const kwText = this.extractText(result);
+                    if (kwText) existing.text = kwText;
+                }
             } else {
                 // نتيجة فقط من المحرك النصي
+                const resolvedText = this.extractText(result);
                 resultsMap.set(key, {
                     ...result,
                     id: key,
+                    text: resolvedText,                       // ← مضمون دائماً
                     semanticScore: 0,
                     semanticRank: null,
                     keywordScore: result.score || result.finalScore || 0,
@@ -144,37 +201,30 @@ class ResultReranker {
             totalRaw: 0
         };
         
-        // 1️⃣ النقاط الدلالية (معكوس الترتيب للأهمية)
         if (result.semanticScore > 0) {
             breakdown.semantic = result.semanticScore * this.weights.semanticScore;
         }
         
-        // 2️⃣ النقاط الكلماتية - مع تطبيع إلى [0-1] أولاً
-        // NeuralSearch تُعطي finalScore بين [30-20000]، نُطبّعها لتتوازن مع cosineScore الدلالي [0-1]
         if (result.keywordScore > 0) {
-            const isNeuralScore = result.keywordScore > 1; // cosine دائماً ≤ 1
+            const isNeuralScore = result.keywordScore > 1;
             const normalizedKeyword = isNeuralScore
                 ? Math.min(result.keywordScore / this.NEURAL_SCORE_MAX, 1.0)
                 : result.keywordScore;
             breakdown.keyword = normalizedKeyword * this.weights.keywordScore;
         }
         
-        // 3️⃣ تعزيز السياق
         if (context && this.isContextRelevant(result, context)) {
-            breakdown.contextBoost = 0.15; // تعزيز قوي
+            breakdown.contextBoost = 0.15;
             console.log(`  🧠 تعزيز السياق للنتيجة ${result.id}`);
         }
         
-        // 4️⃣ تعزيز المصادر المختلطة (hybrid)
         let hybridBonus = 0;
         if (result.source === 'hybrid') {
-            hybridBonus = 0.1; // مكافأة 10% للنتائج الموجودة في كلا المحركين
+            hybridBonus = 0.1;
             console.log(`  🔀 مكافأة هجينة للنتيجة ${result.id}`);
         }
         
-        // الحساب النهائي
         breakdown.totalRaw = breakdown.semantic + breakdown.keyword + breakdown.contextBoost + hybridBonus;
-        
         result.scoreBreakdown = breakdown;
         
         return breakdown.totalRaw;
@@ -189,18 +239,21 @@ class ResultReranker {
         const contextData = context.data;
         const resultData = result.data || result.original_data || {};
         
-        // فحص التطابق بناءً على نوع السياق
         switch(context.type) {
             case 'activity':
                 return resultData['النشاط_المحدد'] === contextData.text ||
-                       resultData['الاسم'] === contextData.text;
+                       resultData['الاسم'] === contextData.text ||
+                       // ✅ [جديد] فحص text المُوحَّد أيضاً
+                       result.text === contextData.text;
                        
             case 'industrial':
                 return resultData['اسم_المنطقة'] === contextData.name ||
-                       resultData['name'] === contextData.name;
+                       resultData['name'] === contextData.name ||
+                       result.text === contextData.name;
                        
             case 'decision104':
-                return resultData['النشاط'] === contextData.activity;
+                return resultData['النشاط'] === contextData.activity ||
+                       result.text === contextData.activity;
                        
             default:
                 return false;
@@ -212,14 +265,9 @@ class ResultReranker {
      */
     analyzeWinner(winner) {
         if (!winner) return;
-        
-        if (winner.source === 'semantic') {
-            this.stats.semanticWins++;
-        } else if (winner.source === 'keyword') {
-            this.stats.keywordWins++;
-        } else if (winner.source === 'hybrid') {
-            this.stats.hybridWins++;
-        }
+        if (winner.source === 'semantic') this.stats.semanticWins++;
+        else if (winner.source === 'keyword') this.stats.keywordWins++;
+        else if (winner.source === 'hybrid') this.stats.hybridWins++;
     }
     
     /**
@@ -256,7 +304,7 @@ class ResultReranker {
 if (typeof window !== 'undefined') {
     window.ResultReranker = ResultReranker;
     window.resultReranker = new ResultReranker();
-    console.log("✅ ResultReranker جاهز للخدمة");
+    console.log("✅ ResultReranker v1.1 جاهز — توحيد text + isContextRelevant مُحسَّن");
 }
 
 if (typeof module !== 'undefined' && module.exports) {
