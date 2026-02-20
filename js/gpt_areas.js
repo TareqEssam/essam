@@ -2,7 +2,7 @@
 window.GPT_AGENT = window.GPT_AGENT || {};
 
 
-// ==================== دالة اختيار أفضل جهة ولاية ====================
+// ==================== دالة اخــتيار أفضل جهة ولاية ====================
 function getBestMatchingDependency(query, candidates) {
     if (!candidates || candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0];
@@ -380,67 +380,18 @@ function cleanSearchKeyword(keyword) {
  * @param {Object} questionType - نوع السؤال
  */
 async function handleSpecificAreaQuery(query, areaNames, questionType) {
-    console.log("🎯 [handleSpecificAreaQuery] معالجة منطقة محددة:", areaNames.map(a => a.name));
+    console.log("🎯 [handleSpecificAreaQuery] تفويض للبحث الذكي الشامل:", areaNames.map(a => a.name));
 
-    // 1. محاولة المطابقة المباشرة مع قاعدة البيانات
-    let foundArea = null;
-    let matchedName = null;
-
-    for (const areaRef of areaNames) {
-        const name = areaRef.name;
-        // أ. مطابقة حرفية كاملة
-        foundArea = industrialAreasData.find(a => normalizeArabic(a.name) === normalizeArabic(name));
-        if (foundArea) { matchedName = name; break; }
-        
-        // ب. مطابقة جزئية (الاسم يحتوي على الكلمة المطلوبة)
-        const cleanName = cleanSearchKeyword(name);
-        if (cleanName.length > 2) {
-            const partials = industrialAreasData.filter(a =>
-                normalizeArabic(a.name).includes(cleanName)
-            );
-            if (partials.length === 1) {
-                foundArea = partials[0];
-                matchedName = name;
-                break;
-            } else if (partials.length > 1) {
-                // عدة مناطق → عرض خيارات
-                console.log(`🤔 [handleSpecificAreaQuery] ${partials.length} مناطق تحتوي على "${cleanName}"`);
-                const candidates = partials.slice(0, 6).map(a => ({ area: a, score: 1, cosineScore: 0 }));
-                return formatMultipleAreasChoice(query, candidates);
-            }
+    // استثناء واحد فقط: سؤال موقع → يحتاج منطقة واحدة
+    if (questionType.isLocation && areaNames.length >= 1) {
+        const exactArea = industrialAreasData.find(a => normalizeArabic(a.name) === normalizeArabic(areaNames[0].name));
+        if (exactArea) {
+            await AgentMemory.setIndustrial(exactArea, query);
+            return formatIndustrialMapLink(exactArea);
         }
     }
 
-    // 2. إذا وجدنا المنطقة → إجابة موحدة بناءً على نوع السؤال
-    if (foundArea) {
-        await AgentMemory.setIndustrial(foundArea, query);
-        console.log("✅ [handleSpecificAreaQuery] تم العثور على:", foundArea.name);
-
-        // تحديد نوع الإجابة بناءً على نية السؤال
-        if (questionType.isLocation) {
-            return formatIndustrialMapLink(foundArea);
-        }
-        if (questionType.isYesNo || questionType.isAreaExistenceCheck) {
-            const areaName = foundArea.name;
-            const displayName = (areaName.startsWith('المنطقة') || areaName.startsWith('منطقة'))
-                ? areaName : `منطقة ${areaName}`;
-            return `✅ <strong>نعم</strong>، <strong>${displayName}</strong> هي منطقة صناعية معتمدة.<br>
-                <small style="color: #666;">📍 تقع في محافظة ${foundArea.governorate}</small><br><br>
-                <div class="choice-btn" onclick="selectIndustrialArea('${foundArea.name.replace(/'/g, "\\'")}')">
-                    <span class="choice-icon">📋</span> <strong>عرض التفاصيل الكاملة للمنطقة</strong>
-                </div>
-                <div style="margin-top: 10px; padding: 12px; background: #f8fafc; border-radius: 10px; border-right: 4px solid #0ea5e9; font-size: 0.85rem; color: #1e293b; line-height: 1.6;">
-                    💡 <strong>يمكنك سؤالي عن:</strong><br>
-                    • جهة الولاية • المحافظة • المساحة • القرار • عرض الخريطة
-                </div>
-                ${buildExplorationButtons()}`;
-        }
-        // السؤال العام عن المنطقة
-        return formatIndustrialResponse(foundArea);
-    }
-
-    // 3. لم نجد المنطقة بالاسم المباشر → نفوّض لـ handleAreaExistenceQuestion للبحث الذكي
-    console.log("⚠️ [handleSpecificAreaQuery] لم يُعثر على المنطقة مباشرة → بحث ذكي");
+    // كل الحالات الأخرى → handleAreaExistenceQuestion دائماً
     const q = normalizeArabic(query);
     const keywords = extractKeywords(query);
     return await handleAreaExistenceQuestion(query, { areaNames, hasAreaName: true }, q, keywords);
