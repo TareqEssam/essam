@@ -249,7 +249,11 @@ window.detectQuestionType = function(query) {
     const isAreaExistenceCheck = /هل/.test(q) && hasIndustrialPattern && 
                                   !hasLicenseKeywords && 
                                   !/(ترخيص|نشاط|مشروع)/.test(q);
-    const isDecision104 = /قرار.*104|104|حافز|حوافز|قطاع\s*(أ|ا|ب)/.test(q);
+    const isDecision104 = /قرار.*104|104|حافز|حوافز|قطاع\s*(أ|ا|ب)/.test(q) ||
+    /\b(وارد|مدرج|مشمول|يستفيد|يندرج|يخضع)\b/.test(q) ||
+    /\b(اعفاء|إعفاء|اعفاءات|إعفاءات|مزايا|ضريبي|ضريبية|ضريبيه)\b/.test(q) ||
+    /هل\s*(هو|هي|ده|دي|النشاط)?\s*(له|لها)?\s*(مزايا|حوافز|اعفاء|إعفاء)/.test(q) ||
+    /هل\s*(هو|هي|ده|دي)?\s*(مشمول|مدرج|وارد|يستفيد|ينضوي)/.test(q);
 
     return {
         isCount: /عدد|كام|كم|تعداد|عدده/.test(q),
@@ -1798,14 +1802,17 @@ async function handleContextualQuery(query, questionType, context) {
         if (questionType.isLocation || q.includes('موقع') || q.includes('مكان')) {
             return formatSuitableLocation(details);
         }
-        if (questionType.isDecision104 || q.includes('104') || q.includes('حوافز')) {
-            if (/هل\s*(هو|هي|هوارد|هيوارد)?\s*(وارد|موجود|مدرج)\s*(بالقرار|في القرار|ب)?\s*104?/.test(q) || 
-                q === 'هل هو وارد بالقرار 104' || q === 'هل هوارد بالقرار 104' || q === 'هل هو وارد' ||
-                q === 'هل موجود' || q === 'وارد بالقرار 104') {
-                return window.handleDecision104Query(`هل ${act.text} وارد بالقرار 104`, detectQuestionType(query));
-            }
-            return window.checkDecision104Full ? window.checkDecision104Full(act.text) : null;
-        }
+        const isDecision104Intent =
+    questionType.isDecision104 ||
+    q.includes('104') ||
+    /\b(حوافز|حافز|اعفاء|إعفاء|اعفاءات|إعفاءات|مزايا|ضريبي|ضريبية)\b/.test(q) ||
+    /\b(وارد|مدرج|مشمول|يستفيد|يندرج|يخضع|مذكور)\b/.test(q) ||
+    /هل\s*(هو|هي|ده|دي|النشاط)?\s*(له|لها)?\s*(مزايا|حوافز|اعفاء|إعفاء)/.test(q) ||
+    /هل\s*(هو|هي|ده|دي)?\s*(مشمول|مدرج|وارد|يستفيد|ينضوي)/.test(q);
+
+if (isDecision104Intent) {
+    return window.handleDecision104Query(`هل ${act.text} وارد بالقرار 104`, detectQuestionType(query));
+}
     }
     return null;
 }
@@ -2366,6 +2373,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
