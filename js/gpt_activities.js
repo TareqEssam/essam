@@ -1,7 +1,7 @@
 // gpt_activities.js
 window.GPT_AGENT = window.GPT_AGENT || {};
 
-// ==================== معــــــــالج أسئلة الأنشطة - الإصدار الأصلي ====================
+// ==================== معالج أسئلة الأنشطة - الإصدار الأصلي ====================
 async function handleActivityQuery(query, questionType, preComputedContext, preComputedEntities) {
     if (typeof masterActivityDB === 'undefined') {
         return "⚠️ نظام البحث عن الأنشطة غير متوفر حالياً.";
@@ -232,13 +232,9 @@ function formatSimilarActivitiesChoice(query, activities) {
 
 // ==================== دالة تنسيق رد النشاط الأساسية ====================
 function formatActivityResponse(activity, questionType) {
-    // ✅ إصلاح: استخراج details من أي موضع في هيكل البيانات
-    // نتائج Reranker تضع البيانات في: activity.data.original_data
-    // بينما النتائج النصية المباشرة تضعها في: activity.details أو activity مباشرة
     const details = activity.details
         || activity.data?.original_data?.details
         || activity.data?.details
-        || activity.originalData?.details
         || {};
 
     let html = `<div class="info-card">
@@ -308,7 +304,6 @@ function formatLicensesDetailed(activity) {
     const details = activity.details
         || activity.data?.original_data?.details
         || activity.data?.details
-        || activity.originalData?.details
         || {};
     let html = `<div class="license-card">
         <div class="license-title">📝 التراخيص المطلوبة لـ: ${activity.text}</div>
@@ -412,4 +407,3 @@ window.formatSimilarActivitiesChoice = formatSimilarActivitiesChoice;
 
 
 console.log('✅ gpt_activities.js - تم تحميله بنجاح (مستقل تماماً)');
-
