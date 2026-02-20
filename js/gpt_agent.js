@@ -1,6 +1,6 @@
 // gpt_agent.js
 /****************************************************************************
- * 🤖 GPT-Like Agent v10.0 - HYBRID SEMANTIC EDITION
+ * 🤖 GPT-  Like Agent v10.0 - HYBRID SEMANTIC EDITION
  * 
  * ⚡ الميزات الثورية:
  * ✓ محرك دلالي هجين (HybridSearchV1) - بحث ذكي بتقنية E5 Embeddings
@@ -1006,40 +1006,87 @@ async function processUserQuery(query) {
     const _hasLicenseSignal = /(ترخيص|تراخيص|رخصه|رخصة|متطلبات|شروط|اجراءات|جهه|جهة)/.test(q);
 
     if (_isShortQuery && !_hasAreaSignal && !_hasDecisionSignal && !_hasLicenseSignal && !context) {
-        console.log(`🔍 [بوابة الغموض] كلمة/جملة قصيرة غير محددة: "${query}" ← بحث مزدوج في activities + decision104`);
+        console.log(`🔍 [بوابة الغموض] كلمة/جملة غير محددة: "${query}" ← فحص الوجود في activities + decision104`);
 
         const _ambCtx = (typeof analyzeContext === 'function') ? analyzeContext(query, questionType) : {};
         const _ambEnt = (typeof extractEntities === 'function') ? extractEntities(query) : {};
 
+        // ══════════════════════════════════════════════════════════════════════
+        // 🧠 [استراتيجية ذكية] بدلاً من دمج النتيجتين (مربك للمستخدم)،
+        // نُقرر أولاً هل النشاط موجود في القاعدتين؟
+        //   وُجد في الاثنتين  → توضيح تفاعلي "ماذا تريد بالضبط؟"
+        //   وُجد في واحدة     → عرض نتيجتها مباشرة
+        //   لم يُوجد بأيٍّ منهما → تابع التدفق الطبيعي
+        // ══════════════════════════════════════════════════════════════════════
+
         // أ. البحث في قاعدة الأنشطة
         const _actRes = await handleActivityQuery(query, questionType, _ambCtx, _ambEnt);
+        const _actFound = _actRes && typeof _actRes === 'string' && !_actRes.includes('لم أجد');
 
-        // ب. البحث في قاعدة القرار 104 - async دالة تحتاج await
+        // ب. البحث في قاعدة القرار 104
         let _dec104Res = null;
         if (typeof handleDecision104Query === 'function') {
             _dec104Res = await Promise.resolve(handleDecision104Query(query, questionType));
         }
+        const _decFound = _dec104Res && typeof _dec104Res === 'string' &&
+            !_dec104Res.includes('لم أجد') && !_dec104Res.includes('formatDecision104Options');
 
-        // ج. إذا وجد كلاهما نتائج → اجمعهما في رد واحد
-        const _actFound = _actRes && typeof _actRes === 'string' && !_actRes.includes('لم أجد');
-        const _decFound = _dec104Res && typeof _dec104Res === 'string' && !_dec104Res.includes('لم أجد');
+        console.log(`🔎 [بوابة الغموض] activities=${_actFound} | decision104=${_decFound}`);
 
+        // ── الحالة 1: موجود في الاثنتين → توضيح تفاعلي ذكي ─────────────────
         if (_actFound && _decFound) {
-            console.log("✅ [بوابة الغموض] عثر في activities + decision104 - عرض مزدوج");
-            return _actRes + `<div style="margin-top:16px; padding:10px; background:#e8f5e9; border-radius:8px; font-size:0.85rem; color:#1b5e20;">
-                🔎 تم الكشف أن هذا النشاط مدرج أيضاً في القرار 104
-            </div>` + _dec104Res;
+            console.log("🤔 [بوابة الغموض] وُجد في الاثنتين - عرض توضيح تفاعلي");
+            const _displayName = query.replace(/^(نشاط|مشروع|عن|هل|ما هو)\s*/i, '').trim();
+            const _safeName = _displayName.replace(/'/g, "\\'");
+            return `
+                <div class="clarification-card">
+                    <div class="clarification-header">
+                        <div class="clarification-icon">🤔</div>
+                        <div class="clarification-title">سؤالك يحتمل أكثر من معنى</div>
+                    </div>
+                    <div class="clarification-subtitle">
+                        وجدت معلومات عن <strong>"${_displayName}"</strong> في أكثر من قاعدة — ماذا تريد بالضبط؟
+                    </div>
+                    <div class="choice-btn" onclick="(function(){
+                        var q='تراخيص ${_safeName}';
+                        document.getElementById('gptInput').value=q;
+                        window.processUserQuery&&window.processUserQuery(q);
+                    })()">
+                        <span class="choice-icon">📋</span>
+                        <div class="choice-content">
+                            <strong>تراخيص وإجراءات ممارسة النشاط</strong>
+                            <small>الجهات المُصدرة، المتطلبات، الإجراءات، السند التشريعي</small>
+                        </div>
+                    </div>
+                    <div class="choice-btn" onclick="(function(){
+                        var q='هل نشاط ${_safeName} وارد بالقرار 104';
+                        document.getElementById('gptInput').value=q;
+                        window.processUserQuery&&window.processUserQuery(q);
+                    })()">
+                        <span class="choice-icon">⚖️</span>
+                        <div class="choice-content">
+                            <strong>هل هذا النشاط وارد بالقرار 104؟</strong>
+                            <small>الحوافز والإعفاءات الضريبية المتاحة وفقاً لقانون الاستثمار</small>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
+
+        // ── الحالة 2: موجود في activities فقط → عرض مباشر ──────────────────
         if (_actFound) {
-            console.log("✅ [بوابة الغموض] عثر في activities فقط");
+            console.log("✅ [بوابة الغموض] موجود في activities فقط - عرض مباشر");
             return _actRes;
         }
+
+        // ── الحالة 3: موجود في decision104 فقط → عرض مباشر ─────────────────
         if (_decFound) {
-            console.log("✅ [بوابة الغموض] عثر في decision104 فقط");
+            console.log("✅ [بوابة الغموض] موجود في decision104 فقط - عرض مباشر");
             return _dec104Res;
         }
+
         // لم يجد في أي منهما → يكمل التدفق الطبيعي
-        console.log("⚠️ [بوابة الغموض] لم يعثر في activities أو decision104 - متابعة التدفق");
+        console.log("⚠️ [بوابة الغموض] لم يُعثر في أي قاعدة - متابعة التدفق");
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1130,7 +1177,50 @@ async function processUserQuery(query) {
             keywordClassification = window.intentClassifier.classify(query, context);
             console.log("🎯 تصنيف المصنف الكلماتي:", keywordClassification);
         }
-        
+
+        // ── 🆕 [بوابة الالتباس المبكر activities ↔ decision104] ───────────────
+        // إذا أعاد IntentClassifier علامة isActDecAmbiguous وكانت الثقة منخفضة
+        // نعرض توضيحاً تفاعلياً قبل أي بحث دلالي مكلف
+        // ─────────────────────────────────────────────────────────────────────
+        if (keywordClassification?.isActDecAmbiguous && keywordClassification.confidence < 5.0 && !context) {
+            console.log("🤔 [بوابة مبكرة] التباس activities↔decision104 - عرض توضيح تفاعلي");
+            const _dn = query.replace(/^(نشاط|مشروع|هل|ما هو|عن)\s*/i, '').trim();
+            const _sn = _dn.replace(/'/g, "\\'");
+            return `
+                <div class="clarification-card">
+                    <div class="clarification-header">
+                        <div class="clarification-icon">🤔</div>
+                        <div class="clarification-title">سؤالك يحتمل أكثر من معنى</div>
+                    </div>
+                    <div class="clarification-subtitle">
+                        ماذا تريد معرفته عن <strong>"${_dn}"</strong>؟
+                    </div>
+                    <div class="choice-btn" onclick="(function(){
+                        var q='تراخيص ${_sn}';
+                        document.getElementById('gptInput').value=q;
+                        window.processUserQuery&&window.processUserQuery(q);
+                    })()">
+                        <span class="choice-icon">📋</span>
+                        <div class="choice-content">
+                            <strong>تراخيص وإجراءات ممارسة النشاط</strong>
+                            <small>الجهات المُصدرة، المتطلبات، السند التشريعي، الموقع الملائم</small>
+                        </div>
+                    </div>
+                    <div class="choice-btn" onclick="(function(){
+                        var q='هل نشاط ${_sn} وارد بالقرار 104';
+                        document.getElementById('gptInput').value=q;
+                        window.processUserQuery&&window.processUserQuery(q);
+                    })()">
+                        <span class="choice-icon">⚖️</span>
+                        <div class="choice-content">
+                            <strong>هل هذا النشاط وارد بالقرار 104؟</strong>
+                            <small>الحوافز والإعفاءات الضريبية المتاحة وفقاً لقانون الاستثمار</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        // ─────────────────────────────────────────────────────────────────────
         // ب. البحث الدلالي
         console.log("⏳ جاري استشارة الموجه الدلالي (Semantic Routing)...");
         // انتظار جهوزية المحرك إذا كان لا يزال يتهيأ
