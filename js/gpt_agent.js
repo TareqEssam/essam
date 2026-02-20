@@ -249,11 +249,14 @@ window.detectQuestionType = function(query) {
     const isAreaExistenceCheck = /هل/.test(q) && hasIndustrialPattern && 
                                   !hasLicenseKeywords && 
                                   !/(ترخيص|نشاط|مشروع)/.test(q);
-    const isDecision104 = /قرار.*104|104|حافز|حوافز|قطاع\s*(أ|ا|ب)/.test(q) ||
-    /\b(وارد|مدرج|مشمول|يستفيد|يندرج|يخضع)\b/.test(q) ||
+    const isDecision104 =
+    /قرار.*104|104|حافز|حوافز|قطاع\s*(أ|ا|ب)/.test(q) ||
+    /\b(وارد|مدرج|مشمول|يستفيد|يندرج|يخضع|مذكور|منصوص)\b/.test(q) ||
     /\b(اعفاء|إعفاء|اعفاءات|إعفاءات|مزايا|ضريبي|ضريبية|ضريبيه)\b/.test(q) ||
-    /هل\s*(هو|هي|ده|دي|النشاط)?\s*(له|لها)?\s*(مزايا|حوافز|اعفاء|إعفاء)/.test(q) ||
-    /هل\s*(هو|هي|ده|دي)?\s*(مشمول|مدرج|وارد|يستفيد|ينضوي)/.test(q);
+    /هل\s*(هو|هي|ده|دي|النشاط)?\s*(له|لها)?\s*(مزايا|حوافز|اعفاء|إعفاء|ضريبي)/.test(q) ||
+    /هل\s*(هو|هي|ده|دي)?\s*(مشمول|مدرج|وارد|يستفيد|ينضوي|يندرج|يخضع)/.test(q) ||
+    /\b(يستفيد|تستفيد|نستفيد|يحق|تحق)\b.*\b(حافز|مزايا|اعفاء|إعفاء|ضريب)\b/.test(q) ||
+    /\b(ضمن|داخل|في)\b.*\b(القرار|قرار|قطاع)\b/.test(q);
 
     return {
         isCount: /عدد|كام|كم|تعداد|عدده/.test(q),
@@ -1802,15 +1805,16 @@ async function handleContextualQuery(query, questionType, context) {
         if (questionType.isLocation || q.includes('موقع') || q.includes('مكان')) {
             return formatSuitableLocation(details);
         }
-        const isDecision104Intent =
+        const _isDecision104Intent =
     questionType.isDecision104 ||
-    q.includes('104') ||
-    /\b(حوافز|حافز|اعفاء|إعفاء|اعفاءات|إعفاءات|مزايا|ضريبي|ضريبية)\b/.test(q) ||
-    /\b(وارد|مدرج|مشمول|يستفيد|يندرج|يخضع|مذكور)\b/.test(q) ||
-    /هل\s*(هو|هي|ده|دي|النشاط)?\s*(له|لها)?\s*(مزايا|حوافز|اعفاء|إعفاء)/.test(q) ||
-    /هل\s*(هو|هي|ده|دي)?\s*(مشمول|مدرج|وارد|يستفيد|ينضوي)/.test(q);
+    /\b(104|حوافز|حافز|اعفاء|إعفاء|اعفاءات|إعفاءات|مزايا|ضريبي|ضريبية|ضريبيه)\b/.test(q) ||
+    /\b(وارد|مدرج|مشمول|يستفيد|يندرج|يخضع|مذكور|منصوص|ينضوي)\b/.test(q) ||
+    /هل\s*(هو|هي|ده|دي|النشاط)?\s*(له|لها)?\s*(مزايا|حوافز|اعفاء|إعفاء|ضريبي)/.test(q) ||
+    /هل\s*(هو|هي|ده|دي)?\s*(مشمول|مدرج|وارد|يستفيد|ينضوي|يندرج)/.test(q) ||
+    /\b(يستفيد|تستفيد|يحق|تحق)\b.*\b(حافز|مزايا|اعفاء|ضريب)\b/.test(q) ||
+    /\b(ضمن|داخل|في)\b.*\b(القرار|قرار|قطاع)\b/.test(q);
 
-if (isDecision104Intent) {
+if (_isDecision104Intent) {
     return window.handleDecision104Query(`هل ${act.text} وارد بالقرار 104`, detectQuestionType(query));
 }
     }
@@ -2373,6 +2377,7 @@ window.addEventListener('load', window.initializeGptSystem);
 
 
 } // نهاية الملف gpt_agent.js
+
 
 
 
