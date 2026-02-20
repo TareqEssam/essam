@@ -2,7 +2,7 @@
 window.GPT_AGENT = window.GPT_AGENT || {};
 
 
-// ==================== دالة اختيار أفضل جهة ولاية ====================
+// ==================== دالة اختـــيار أفضل جهة ولاية ====================
 function getBestMatchingDependency(query, candidates) {
     if (!candidates || candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0];
@@ -40,87 +40,109 @@ function getBestMatchingDependency(query, candidates) {
 // questionType الذي يأتي من gpt_agent.js.
 //
 // أنواع النوايا المدعومة:
-//   - DEPENDENCY_LIST   : "ما هي جهات الولاية" / "اعرض جهات الولاية"
-//   - DEPENDENCY_COUNT  : "كم عدد جهات الولاية"
-//   - GOV_COUNT        : "كم عدد المناطق في محافظة X"
-//   - GOV_LIST         : "ما هي المناطق في محافظة X"
-//   - SPECIFIC_AREA    : "البساتين" / "هل منطقة X صناعية"
-//   - GENERAL_COUNT    : "كم عدد المناطق الصناعية في مصر"
-//   - GENERAL_LIST     : "اعرض كل المناطق"
-//   - UNKNOWN          : لم تُحدَّد النية → استمر بالمنطق الأصلي
+//   - DEPENDENCY_OF_CURRENT : "ما هي جهة الولاية" (مفرد + سياق موجود)
+//   - DEPENDENCY_LIST       : "ما هي جهات الولاية للمناطق الصناعية"
+//   - DEPENDENCY_COUNT      : "كم عدد جهات الولاية"
+//   - GOV_COUNT_GENERAL     : "كم عدد المحافظات"
+//   - GOV_LIST_GENERAL      : "ما هي المحافظات"
+//   - GENERAL_COUNT         : "كم عدد المناطق الصناعية"
+//   - NO_OVERRIDE           : استمر بالمنطق الأصلي
 // ════════════════════════════════════════════════════════════════════
 function detectAreasIntent(normalizedQuery, entities) {
     const q = normalizedQuery;
 
-    // ── أنماط جهات الولاية ──────────────────────────────────────────
-    const dependencyWords   = ['جهه', 'جهة', 'جهات', 'الجهه', 'الجهة', 'الجهات', 'ولايه', 'ولاية', 'تبعيه', 'تبعية'];
-    const hasDependencyWord = dependencyWords.some(w => q.includes(w));
+    // ── استرداد السياق الحالي من الذاكرة ────────────────────────────
+    const agentContext = (typeof AgentMemory !== 'undefined') ? AgentMemory.getContext() : null;
+    const hasIndustrialContext = agentContext && agentContext.type === 'industrial' && agentContext.data;
 
-    // "ما هي جهات الولاية" أو "اعرض جهات الولاية" أو "من هي جهات"
-    const listWords  = ['ما هي', 'ما هو', 'اعرض', 'اظهر', 'قائمه', 'قائمة', 'اسماء', 'أسماء', 'من هي', 'من هو', 'عرض'];
+    // ── كلمات جهة الولاية ───────────────────────────────────────────
+    // مفرد: "جهة/جهه/الجهة/الجهه/ولاية/ولايه/التبعية/التبعيه/تبعية/تبعيه"
+    // جمع:  "جهات/الجهات/ولايات"
+    const depSingularWords = ['جهه', 'جهة', 'الجهه', 'الجهة', 'ولايه', 'ولاية', 'الولايه', 'الولاية', 'تبعيه', 'تبعية', 'التبعيه', 'التبعية'];
+    const depPluralWords   = ['جهات', 'الجهات', 'ولايات', 'الولايات'];
+    const hasDependencySingular = depSingularWords.some(w => q.includes(w));
+    const hasDependencyPlural   = depPluralWords.some(w => q.includes(w));
+    const hasDependencyAny      = hasDependencySingular || hasDependencyPlural;
+
+    // ── كلمات "المناطق الصناعية" (عموم) ─────────────────────────────
+    // وجودها = السؤال عام وليس عن منطقة واحدة
+    const generalScopeWords = ['المناطق', 'مناطق', 'الصناعيه', 'الصناعية', 'صناعيه', 'صناعية'];
+    const hasGeneralScope   = generalScopeWords.some(w => q.includes(w));
+
+    // ── كلمات الاستفهام ─────────────────────────────────────────────
+    const listWords  = ['ما هي', 'ما هو', 'اعرض', 'اظهر', 'قائمه', 'قائمة', 'اسماء', 'أسماء', 'من هي', 'عرض'];
     const countWords = ['كم', 'عدد', 'كمية', 'احصاء', 'إحصاء'];
-
-    const hasListWord  = listWords.some(w  => q.includes(w));
+    const hasListWord  = listWords.some(w => q.includes(w));
     const hasCountWord = countWords.some(w => q.includes(w));
 
     // ── أنماط المحافظات ──────────────────────────────────────────────
-    const govWords    = ['محافظه', 'محافظة', 'محافظات'];
-    const hasGovWord  = govWords.some(w => q.includes(w));
+    const govWords   = ['محافظه', 'محافظة', 'محافظات'];
+    const hasGovWord = govWords.some(w => q.includes(w));
 
-    // ── أنماط الاستعلام عن منطقة محددة ─────────────────────────────
+    // ── منطقة محددة في الكيانات ─────────────────────────────────────
     const hasSpecificArea = entities.hasAreaName && entities.areaNames.length > 0;
 
-    // ── أنماط الاستعلام العام ────────────────────────────────────────
-    const generalWords = ['مصر', 'جميع', 'كل', 'اجمالي', 'إجمالي'];
-    const hasGeneralWord = generalWords.some(w => q.includes(w));
+    // ════ منطق التفريق الذكي ════════════════════════════════════════
 
-    // ════ منطق الأولويات ═══════════════════════════════════════════
-
-    // 1. سؤال عن قائمة/عدد جهات الولاية (أعلى أولوية — أكثر تحديداً)
-    if (hasDependencyWord && !entities.hasGovernorate && !entities.hasDependency && !hasSpecificArea) {
-        if (hasCountWord) {
+    // ── الحالة 1: "ما هي جهة الولاية" (مفرد) ───────────────────────
+    // الشروط: مفرد + لا جمع + لا "المناطق/الصناعية" + سياق موجود
+    // → النية: جهة الولاية للمنطقة التي سُئل عنها مسبقاً
+    if (hasDependencySingular && !hasDependencyPlural && !hasGeneralScope && !hasSpecificArea) {
+        if (hasIndustrialContext) {
+            console.log("🏭 [Intent] جهة الولاية للمنطقة الحالية في السياق:", agentContext.data.name);
             return {
-                label: 'DEPENDENCY_COUNT',
+                label: 'DEPENDENCY_OF_CURRENT',
                 override: {
-                    isCount: true,
-                    isGeneralAreaCount: false,
-                    isSpecificAreaCount: false,
+                    isGovernanceAuthority: false,
                     isYesNo: false,
                     isAreaExistenceCheck: false,
-                    isGovernanceAuthority: true,
-                    isList: false,
-                    isAreaList: false,
-                    _intentDetected: 'DEPENDENCY_COUNT'
+                    isGeneralAreaCount: false,
+                    _intentDetected: 'DEPENDENCY_OF_CURRENT',
+                    _contextArea: agentContext.data   // نمرر المنطقة المحددة
                 }
             };
         }
-        // "ما هي جهات الولاية" بدون كم
-        return {
-            label: 'DEPENDENCY_LIST',
-            override: {
-                isAreaList: true,
-                isList: true,
-                isGeneralAreaCount: false,
-                isYesNo: false,
-                isAreaExistenceCheck: false,
-                isGovernanceAuthority: true,
-                _intentDetected: 'DEPENDENCY_LIST'
-            }
-        };
+        // مفرد بدون سياق → اسأل عن أي منطقة يقصد
+        return { label: 'NO_OVERRIDE', override: null };
     }
 
-    // 2. سؤال عن المحافظات (بدون محافظة محددة)
+    // ── الحالة 2: "ما هي جهات الولاية للمناطق الصناعية" (جمع أو عام) ─
+    // الشروط: جمع أو (مفرد + "المناطق/الصناعية") + لا منطقة محددة
+    if (hasDependencyAny && !entities.hasGovernorate && !entities.hasDependency && !hasSpecificArea) {
+        if (hasDependencyPlural || (hasDependencySingular && hasGeneralScope)) {
+            if (hasCountWord) {
+                return {
+                    label: 'DEPENDENCY_COUNT',
+                    override: {
+                        isCount: true, isGeneralAreaCount: false,
+                        isSpecificAreaCount: false, isYesNo: false,
+                        isAreaExistenceCheck: false, isGovernanceAuthority: true,
+                        isList: false, isAreaList: false,
+                        _intentDetected: 'DEPENDENCY_COUNT'
+                    }
+                };
+            }
+            return {
+                label: 'DEPENDENCY_LIST',
+                override: {
+                    isAreaList: true, isList: true,
+                    isGeneralAreaCount: false, isYesNo: false,
+                    isAreaExistenceCheck: false, isGovernanceAuthority: true,
+                    _intentDetected: 'DEPENDENCY_LIST'
+                }
+            };
+        }
+    }
+
+    // ── الحالة 3: أسئلة المحافظات العامة ───────────────────────────
     if (hasGovWord && !entities.hasGovernorate && !hasSpecificArea) {
         if (hasCountWord) {
             return {
                 label: 'GOV_COUNT_GENERAL',
                 override: {
-                    isCount: true,
-                    isGeneralAreaCount: false,
-                    isSpecificAreaCount: false,
-                    isYesNo: false,
-                    isAreaExistenceCheck: false,
-                    isGovernorate: true,
+                    isCount: true, isGeneralAreaCount: false,
+                    isSpecificAreaCount: false, isYesNo: false,
+                    isAreaExistenceCheck: false, isGovernorate: true,
                     _intentDetected: 'GOV_COUNT_GENERAL'
                 }
             };
@@ -128,32 +150,27 @@ function detectAreasIntent(normalizedQuery, entities) {
         return {
             label: 'GOV_LIST_GENERAL',
             override: {
-                isAreaList: true,
-                isList: true,
-                isGeneralAreaCount: false,
-                isYesNo: false,
-                isAreaExistenceCheck: false,
-                isGovernorate: true,
+                isAreaList: true, isList: true,
+                isGeneralAreaCount: false, isYesNo: false,
+                isAreaExistenceCheck: false, isGovernorate: true,
                 _intentDetected: 'GOV_LIST_GENERAL'
             }
         };
     }
 
-    // 3. سؤال عام عن عدد المناطق الصناعية في مصر فقط
-    // (وليس عن جهات أو محافظات أو منطقة محددة)
-    if (hasCountWord && !hasDependencyWord && !hasGovWord && !hasSpecificArea) {
+    // ── الحالة 4: عدد المناطق الصناعية الإجمالي ────────────────────
+    if (hasCountWord && !hasDependencyAny && !hasGovWord && !hasSpecificArea) {
         return {
             label: 'GENERAL_COUNT',
             override: {
-                isGeneralAreaCount: true,
-                isYesNo: false,
+                isGeneralAreaCount: true, isYesNo: false,
                 isAreaExistenceCheck: false,
                 _intentDetected: 'GENERAL_COUNT'
             }
         };
     }
 
-    // 4. لا يوجد override — استمر بالمنطق الأصلي
+    // ── الحالة 5: لا override → استمر بالمنطق الأصلي ───────────────
     return { label: 'NO_OVERRIDE', override: null };
 }
 
@@ -212,6 +229,29 @@ async function handleIndustrialQuery(query, questionType, preComputedContext, pr
 
     // 🧠 [Override] معالجة النوايا المكتشفة بدقة من detectAreasIntent
     const _intent = questionType._intentDetected;
+
+    // DEPENDENCY_OF_CURRENT: "ما هي جهة الولاية" (مفرد + سياق منطقة محددة)
+    if (_intent === 'DEPENDENCY_OF_CURRENT') {
+        const contextArea = questionType._contextArea;
+        if (contextArea && contextArea.name) {
+            console.log("🏛️ [Override] جهة الولاية للمنطقة:", contextArea.name);
+            const dep = contextArea.dependency || 'غير محددة';
+            const gov = contextArea.governorate || '';
+            return `<div class="info-card">
+                <div class="info-card-header">🏛️ جهة الولاية لـ ${contextArea.name}</div>
+                <div class="info-card-content">
+                    <div class="info-row">
+                        <div class="info-label">🏛️ جهة الولاية:</div>
+                        <div class="info-value"><strong>${dep}</strong></div>
+                    </div>
+                    ${gov ? `<div class="info-row"><div class="info-label">📍 المحافظة:</div><div class="info-value">${gov}</div></div>` : ''}
+                </div>
+            </div>
+            <div style="margin-top: 10px; padding: 10px; background: #f0f9ff; border-radius: 8px; font-size: 0.85rem; color: #0369a1;">
+                💡 يمكنك سؤالي أيضاً عن: المساحة • الموقع • القرار
+            </div>`;
+        }
+    }
 
     // DEPENDENCY_LIST: "ما هي جهات الولاية للمناطق الصناعية"
     if (_intent === 'DEPENDENCY_LIST' || (_intent === undefined && questionType.isGovernanceAuthority && !entities.hasAreaName)) {
