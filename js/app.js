@@ -1542,6 +1542,13 @@ if (licenseDB[type].link) {
 
 
 
+// دالة لإظهار/إخفاء منطقة النص عند تفعيل الـ checkbox
+function toggleTextArea(textAreaId, isChecked) {
+    const textArea = document.getElementById(textAreaId);
+    if (textArea) {
+        textArea.style.display = isChecked ? 'block' : 'none';
+    }
+}
 
 
 // ==========================================================
@@ -6284,6 +6291,7 @@ if (document.readyState === 'loading') {
             if (biCharts.waste) biCharts.waste.destroy();
             biCharts.waste = new Chart(ctx6, { type: 'bar', data: { labels: ['عضوية', 'معادن', 'بلاستيك', 'ورق', 'كيماويات'], datasets: [{ label: 'الكمية (طن)', data: [4200, 3100, 2450, 1800, 900], backgroundColor: '#95a5a6' }] }, options: { responsive: true, maintainAspectRatio: false } });
         }
+
 
 
 
